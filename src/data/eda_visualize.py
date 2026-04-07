@@ -1,6 +1,9 @@
 """
 data/eda_visualize.py
 Generates graphs for the midterm report based on the processed dataset.
+
+Run from project root:
+    python data/eda_visualize.py
 """
 
 import os
@@ -9,89 +12,161 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Add project root to path
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE_DIR)
 
-from config import TRAIN_PATH
+from config import TRAIN_PATH, TEST_PATH
 
-# Ensure the results folder exists
 RESULTS_DIR = os.path.join(BASE_DIR, "results", "figures")
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
-def generate_graphs():
-    print(f"Loading data from: {TRAIN_PATH}")
-    try:
-        df = pd.read_csv(TRAIN_PATH)
-    except FileNotFoundError:
-        print("Error: train.csv not found! Run preprocess.py first.")
-        return
+# ── Style ─────────────────────────────────────────
+sns.set_theme(style="whitegrid", font_scale=1.1)
+COLORS      = ['#2ecc71', '#e74c3c']
+PALETTE     = {0: '#2ecc71', 1: '#e74c3c'}
+SOURCE_PAL  = {'halueval': '#3498db', 'truthfulqa': '#9b59b6'}
 
-    print(f"Dataset loaded: {len(df)} rows.")
 
-    # Set professional visual style
-    sns.set_theme(style="whitegrid")
-    colors = ['#2ecc71', '#e74c3c'] # Green for Correct, Red for Hallucinated
+def _save(fig, name: str):
+    path = os.path.join(RESULTS_DIR, name)
+    fig.savefig(path, dpi=300, bbox_inches='tight')
+    plt.close(fig)
+    print(f"  → Saved: {path}")
 
-    # ──────────────────────────────────────────────
-    # Plot 1: Overall Distribution
-    # ──────────────────────────────────────────────
-    plt.figure(figsize=(8, 6))
-    ax = sns.countplot(data=df, x='label', palette=colors)
-    plt.title('Overall Dataset Balance: Correct vs Hallucinated', fontsize=14, pad=15)
-    plt.xticks([0, 1], ['Correct (0)', 'Hallucinated (1)'])
-    plt.ylabel('Number of Samples')
-    plt.xlabel('')
-    
-    # Add number labels on top of the bars
-    for p in ax.patches:
-        ax.annotate(f'{int(p.get_height())}', (p.get_x() + p.get_width() / 2., p.get_height()),
-                    ha='center', va='bottom', fontsize=12, color='black', xytext=(0, 5),
-                    textcoords='offset points')
-    
-    plt.tight_layout()
-    dist_path = os.path.join(RESULTS_DIR, 'label_distribution.png')
-    plt.savefig(dist_path, dpi=300)
-    print(f"  -> Saved: {dist_path}")
 
-    # ──────────────────────────────────────────────
-    # Plot 2: Distribution by Source
-    # ──────────────────────────────────────────────
-    plt.figure(figsize=(10, 6))
-    sns.countplot(data=df, x='source', hue='label', palette=colors)
-    plt.title('Label Distribution by Source Dataset', fontsize=14, pad=15)
-    plt.legend(['Correct (0)', 'Hallucinated (1)'], title='Label')
-    plt.ylabel('Number of Samples')
-    plt.xlabel('Dataset Source')
-    
-    plt.tight_layout()
-    source_path = os.path.join(RESULTS_DIR, 'source_distribution.png')
-    plt.savefig(source_path, dpi=300)
-    print(f"  -> Saved: {source_path}")
+# ──────────────────────────────────────────────
+# Plot 1
+# ──────────────────────────────────────────────
+def plot_label_distribution(df):
+    fig, ax = plt.subplots(figsize=(7, 5))
+    counts = df['label'].value_counts().sort_index()
 
-    # ──────────────────────────────────────────────
-    # Plot 3: Answer Length Analysis
-    # ──────────────────────────────────────────────
-    # Calculate how many words are in each answer
+    bars = ax.bar(
+        ['Correct (0)', 'Hallucinated (1)'],
+        counts.values,
+        color=COLORS, edgecolor='white', linewidth=0.8, width=0.5
+    )
+
+    for bar in bars:
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height(),
+            f'{int(bar.get_height()):,}',
+            ha='center', va='bottom'
+        )
+
+    fig.tight_layout()
+    _save(fig, 'label_distribution.png')
+
+
+# ──────────────────────────────────────────────
+# Plot 2
+# ──────────────────────────────────────────────
+def plot_source_distribution(df):
+    fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+
+    src_label = df.groupby(['source', 'label']).size().unstack(fill_value=0)
+    src_label.columns = ['Correct', 'Hallucinated']
+
+    src_label.plot(kind='bar', ax=axes[0], color=COLORS)
+
+    src_counts = df['source'].value_counts()
+    axes[1].pie(src_counts.values, labels=src_counts.index, autopct='%1.1f%%')
+
+    fig.tight_layout()
+    _save(fig, 'source_distribution.png')
+
+
+# ──────────────────────────────────────────────
+# Plot 3 (FIXED)
+# ──────────────────────────────────────────────
+def plot_answer_lengths(df):
+    df = df.copy()
+
+    # ✅ FIX: ensure correct dtype
+    df['label'] = df['label'].astype(int)
+
     df['answer_length'] = df['answer'].astype(str).apply(lambda x: len(x.split()))
-    
-    plt.figure(figsize=(10, 6))
-    sns.boxplot(data=df, x='label', y='answer_length', palette=colors)
-    plt.title('Answer Length: Correct vs Hallucinated', fontsize=14, pad=15)
-    plt.xticks([0, 1], ['Correct (0)', 'Hallucinated (1)'])
-    plt.ylabel('Word Count')
-    plt.xlabel('')
-    
-    # Cap the Y-axis to ignore extreme outliers so the boxplot is readable
-    y_max = df['answer_length'].quantile(0.95)
-    plt.ylim(0, y_max)
-    
-    plt.tight_layout()
-    len_path = os.path.join(RESULTS_DIR, 'answer_lengths.png')
-    plt.savefig(len_path, dpi=300)
-    print(f"  -> Saved: {len_path}")
+    cap = df['answer_length'].quantile(0.95)
+    df_capped = df[df['answer_length'] <= cap]
 
-    print("\n✅ All visualizations generated successfully!")
+    fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+
+    # ✅ FIX: added hue
+    sns.boxplot(
+        data=df_capped,
+        x='label',
+        y='answer_length',
+        hue='label',
+        palette=PALETTE,
+        ax=axes[0],
+        width=0.4,
+        legend=False
+    )
+
+    # histogram
+    for lbl, color in PALETTE.items():
+        subset = df_capped[df_capped['label'] == lbl]['answer_length']
+        axes[1].hist(subset, bins=30, alpha=0.5, color=color)
+
+    fig.tight_layout()
+    _save(fig, 'answer_lengths.png')
+
+
+# ──────────────────────────────────────────────
+# Plot 4
+# ──────────────────────────────────────────────
+def plot_train_test_split(train_df, test_df):
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+    for ax, split_df in zip(axes, [train_df, test_df]):
+        counts = split_df['label'].value_counts().sort_index()
+
+        ax.bar(['Correct', 'Hallucinated'], counts.values, color=COLORS)
+
+    fig.tight_layout()
+    _save(fig, 'train_test_split.png')
+
+
+# ──────────────────────────────────────────────
+# Plot 5
+# ──────────────────────────────────────────────
+def plot_question_lengths(df):
+    df = df.copy()
+    df['label'] = df['label'].astype(int)
+
+    df['q_length'] = df['question'].astype(str).apply(lambda x: len(x.split()))
+
+    fig, ax = plt.subplots()
+
+    for lbl, color in PALETTE.items():
+        subset = df[df['label'] == lbl]['q_length']
+        ax.hist(subset, bins=25, alpha=0.6, color=color)
+
+    fig.tight_layout()
+    _save(fig, 'question_lengths.png')
+
+
+# ──────────────────────────────────────────────
+# MAIN (FIXED)
+# ──────────────────────────────────────────────
+def main():
+    train_df = pd.read_csv(TRAIN_PATH)
+    test_df  = pd.read_csv(TEST_PATH)
+
+    combined = pd.concat([train_df, test_df], ignore_index=True)
+
+    # ✅ GLOBAL FIX
+    train_df['label'] = train_df['label'].astype(int)
+    test_df['label'] = test_df['label'].astype(int)
+    combined['label'] = combined['label'].astype(int)
+
+    plot_label_distribution(combined)
+    plot_source_distribution(combined)
+    plot_answer_lengths(combined)
+    plot_train_test_split(train_df, test_df)
+    plot_question_lengths(combined)
+
 
 if __name__ == "__main__":
-    generate_graphs()
+    main()
