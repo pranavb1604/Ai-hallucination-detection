@@ -1,4 +1,26 @@
-# - get_wikipedia_evidence(query) → fetches Wiki passage for M2 & M4
-# - split_into_claims(text) → sentence tokenizer for M4
-# - normalize_score(val) → clamps any float to [0.0, 1.0]
-# - save_scores(scores_dict, path) → saves JSON to results/scores/
+def clean_text(text):
+    """
+    Clean the input text before processing.
+
+    - Removes leading/trailing spaces
+    - Converts everything to lowercase
+    This helps make comparisons consistent.
+    """
+    return text.strip().lower()
+
+
+def normalize_score(score):
+    """
+    Normalize a score to ensure it lies between 0 and 1.
+
+    Why?
+    - Similarity values or calculations might go slightly out of range
+    - We clamp them to [0, 1] for stability
+
+    If conversion fails (invalid input), return 0.0 as safe fallback.
+    """
+    try:
+        score = float(score)          # convert to float
+        return max(0.0, min(1.0, score))  # clamp between 0 and 1
+    except:
+        return 0.0  # fallback if score is invalid
