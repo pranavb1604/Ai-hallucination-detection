@@ -37,11 +37,9 @@ def compute_score(answer, context):
     return max(0.0, min(1.0, sim))
 
 
-def score(question, responses):
-    if not responses:
+def score(question, answer):
+    if not answer:
         return {"m2_score": 0.0, "context": ""}
-
-    answer = responses[0]
 
     # improve query
     query = question.strip()
