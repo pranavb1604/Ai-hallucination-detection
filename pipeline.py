@@ -1,15 +1,116 @@
+"""
+pipeline.py
+───────────
+End-to-end hallucination detection pipeline.
+
+Runs M1–M4 in sequence, then fuses scores via:
+  • Trained M5 neural classifier (if model checkpoint exists), OR
+  • Weighted average fallback (if no checkpoint yet).
+
+Usage:
+    from pipeline import run_pipeline
+    result = run_pipeline(question, responses)
+"""
+
+import os
+import sys
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, BASE_DIR)
+
+from config import (
+    MODEL_SAVE_PATH, TRUST_THRESHOLDS, TRUST_LABELS,
+    M5_INPUT_SIZE, M5_HIDDEN_SIZE_1, M5_HIDDEN_SIZE_2,
+)
 from modules.m1_consistency import score as m1_score
-from modules.m2_grounding import score as m2_score
+from modules.m2_grounding   import score as m2_score
+from modules.m3_uncertainty  import score as m3_score
+from modules.m4_entailment   import score as m4_score
+from modules.m5_classifier   import (
+    load_model, predict_trust, weighted_trust_score,
+)
 
-def run_pipeline(question, responses):
+# ─── Lazy-load the trained model once ────────────────────────────────────────
 
+_model = None
+_model_loaded = False
+
+
+def _get_model():
+    global _model, _model_loaded
+    if not _model_loaded:
+        if os.path.exists(MODEL_SAVE_PATH):
+            try:
+                _model = load_model(MODEL_SAVE_PATH,
+                                    M5_INPUT_SIZE,
+                                    M5_HIDDEN_SIZE_1,
+                                    M5_HIDDEN_SIZE_2)
+            except Exception as e:
+                print(f"[pipeline] Could not load model: {e}. Using fallback.")
+                _model = None
+        _model_loaded = True
+    return _model
+
+
+# ─── Trust label helper ───────────────────────────────────────────────────────
+
+def _trust_label(score: float) -> str:
+    if score >= TRUST_THRESHOLDS["trusted"]:
+        return TRUST_LABELS["trusted"]
+    elif score >= TRUST_THRESHOLDS["uncertain"]:
+        return TRUST_LABELS["uncertain"]
+    elif score >= TRUST_THRESHOLDS["suspicious"]:
+        return TRUST_LABELS["suspicious"]
+    else:
+        return TRUST_LABELS["hallucinated"]
+
+
+# ─── Public API ───────────────────────────────────────────────────────────────
+
+def run_pipeline(question: str, responses: list[str]) -> dict:
+    """
+    Args:
+        question  : the original question posed to the LLM
+        responses : list of LLM responses (ideally ≥ 3 for M1/M3)
+
+    Returns a dict with:
+        trust_score      : float [0, 1]
+        trust_label      : str  (Trusted / Uncertain / Suspicious / Hallucinated)
+        hallucination_prob: float
+        scorer_used      : "neural" | "weighted_fallback"
+        m1, m2, m3, m4   : individual module result dicts
+    """
+    # ── Run modules ──────────────────────────────────────────────────────────
     m1 = m1_score(question, responses)
     m2 = m2_score(question, responses)
+    m3 = m3_score(question, responses)
+    m4 = m4_score(question, responses)
 
-    final_score = 0.6 * m1["m1_score"] + 0.4 * m2["m2_score"]
+    s1 = m1["m1_score"]
+    s2 = m2["m2_score"]
+    s3 = m3["m3_score"]
+    s4 = m4["m4_score"]
+
+    # ── Fuse scores ───────────────────────────────────────────────────────────
+    model = _get_model()
+
+    if model is not None:
+        result = predict_trust(model, s1, s2, s3, s4)
+        trust  = result["trust_score"]
+        hal_p  = result["hallucination_prob"]
+        scorer = "neural"
+    else:
+        trust  = weighted_trust_score(s1, s2, s3, s4)
+        hal_p  = round(1.0 - trust, 4)
+        scorer = "weighted_fallback"
 
     return {
-        "final_score": final_score,
+        "trust_score":       round(trust, 4),
+        "trust_label":       _trust_label(trust),
+        "hallucination_prob": hal_p,
+        "scorer_used":       scorer,
         "m1": m1,
-        "m2": m2
+        "m2": m2,
+        "m3": m3,
+        "m4": m4,
     }

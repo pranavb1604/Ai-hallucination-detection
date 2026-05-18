@@ -14,7 +14,7 @@ from sentence_transformers import SentenceTransformer
 
 _model = None
 
-MAX_CANDIDATES = 3   # Wikipedia pages to try
+MAX_CANDIDATES = 3  
 SUMMARY_SENTENCES = 5
 
 
@@ -26,7 +26,7 @@ def get_model() -> SentenceTransformer:
 
 
 def _build_query(question: str) -> str:
-    """Clean up short queries so Wikipedia search returns useful results."""
+  
     q = question.strip()
     if len(q.split()) <= 2:
         q += " overview"
@@ -34,11 +34,7 @@ def _build_query(question: str) -> str:
 
 
 def fetch_best_context(query: str) -> dict:
-    """
-    Try up to MAX_CANDIDATES Wikipedia pages and return the one whose
-    summary is longest (proxy for relevance when a short query matches
-    a disambiguation page).
-    """
+
     try:
         candidates = wikipedia.search(query, results=MAX_CANDIDATES)
     except Exception:
@@ -70,10 +66,7 @@ def fetch_best_context(query: str) -> dict:
 
 
 def compute_grounding(answer: str, context: str) -> float:
-    """
-    Cosine similarity between the answer embedding and the context embedding.
-    Normalized to [0, 1].
-    """
+  
     if not context or not answer:
         return 0.0
 
@@ -84,20 +77,7 @@ def compute_grounding(answer: str, context: str) -> float:
 
 
 def score(question: str, responses: list[str]) -> dict:
-    """
-    Public API for the pipeline.
-
-    Uses responses[0] as the 'primary answer' to ground — consistent with
-    how the UI displays the first response as the main answer.
-
-    Returns
-    -------
-    m2_score   : float — primary grounding signal for meta-classifier
-    m2_verdict : str   — human-readable label
-    context    : str   — retrieved Wikipedia passage (shown in UI)
-    source     : str   — Wikipedia page title
-    found      : bool  — whether any context was retrieved
-    """
+   
     if not responses:
         return {
             "m2_score": 0.0,

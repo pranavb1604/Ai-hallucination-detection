@@ -22,7 +22,7 @@ def get_model() -> SentenceTransformer:
 
 
 def compute_pairwise_similarities(embeddings: np.ndarray) -> list[float]:
-    """Return cosine similarities for all unique pairs of embeddings."""
+   
     n = len(embeddings)
     sims = []
     for i, j in combinations(range(n), 2):
@@ -32,13 +32,7 @@ def compute_pairwise_similarities(embeddings: np.ndarray) -> list[float]:
 
 
 def compute_consistency(responses: list[str]) -> dict:
-    """
-    Encode all responses and compute:
-      - mean pairwise similarity  (overall consistency)
-      - min  pairwise similarity  (worst-case pair, most divergent)
-      - std  pairwise similarity  (spread / volatility)
-      - per-pair breakdown for UI display
-    """
+ 
     if len(responses) < 2:
         return {
             "mean": 1.0,
@@ -73,17 +67,7 @@ def compute_consistency(responses: list[str]) -> dict:
 
 
 def score(question: str, responses: list[str]) -> dict:
-    """
-    Public API for the pipeline.
-
-    Returns
-    -------
-    m1_score   : float  — primary signal fed to meta-classifier (mean similarity)
-    m1_min     : float  — worst-case pair similarity (useful for SHAP)
-    m1_std     : float  — spread across all pairs
-    m1_pairs   : list   — per-pair breakdown for UI
-    m1_verdict : str    — human-readable label
-    """
+    
     if not responses:
         return {
             "m1_score": 0.0,
