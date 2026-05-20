@@ -22,6 +22,19 @@ from config import (
     MODEL_SAVE_PATH, TRUST_THRESHOLDS, TRUST_LABELS,
     M5_INPUT_SIZE, M5_HIDDEN_SIZE_1, M5_HIDDEN_SIZE_2,
 )
+import importlib
+import modules.m1_consistency
+import modules.m2_grounding
+import modules.m3_uncertainty
+import modules.m4_entailment
+import modules.m5_classifier
+
+importlib.reload(modules.m1_consistency)
+importlib.reload(modules.m2_grounding)
+importlib.reload(modules.m3_uncertainty)
+importlib.reload(modules.m4_entailment)
+importlib.reload(modules.m5_classifier)
+
 from modules.m1_consistency import score as m1_score
 from modules.m2_grounding   import score as m2_score
 from modules.m3_uncertainty  import score as m3_score

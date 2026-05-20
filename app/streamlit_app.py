@@ -87,6 +87,43 @@ st.markdown("""
         padding: 5px 0;
         border-bottom: 1px solid #f0f0f0;
     }
+    .wiki-answer-box {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border-left: 5px solid #3b82f6;
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin: 12px 0;
+        font-size: 15px;
+        color: #1e3a5f;
+    }
+    .wiki-answer-box .answer-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: #3b82f6;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 6px;
+    }
+    .wiki-answer-box .answer-text {
+        font-size: 22px;
+        font-weight: 700;
+        color: #1e40af;
+        margin: 4px 0 8px;
+    }
+    .wiki-answer-box .answer-confidence {
+        font-size: 12px;
+        color: #6b7280;
+    }
+    .wiki-answer-box .answer-confidence .conf-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 11px;
+    }
+    .conf-high   { background: #d1fae5; color: #065f46; }
+    .conf-medium { background: #fef3c7; color: #78350f; }
+    .conf-low    { background: #fee2e2; color: #7f1d1d; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -332,21 +369,33 @@ if run:
     progress = st.progress(0, text="Running M1 — Semantic Consistency …")
 
     with st.spinner("Running M1 — Semantic Consistency …"):
+        import importlib
+        import modules.m1_consistency
+        importlib.reload(modules.m1_consistency)
         from modules.m1_consistency import score as _m1
         m1 = _m1(question, responses)
     progress.progress(25, text="Running M2 — Retrieval Grounding …")
 
     with st.spinner("Running M2 — Retrieval Grounding …"):
+        import importlib
+        import modules.m2_grounding
+        importlib.reload(modules.m2_grounding)
         from modules.m2_grounding import score as _m2
         m2 = _m2(question, responses)
     progress.progress(50, text="Running M3 — Uncertainty Estimation …")
 
     with st.spinner("Running M3 — Uncertainty Estimation …"):
+        import importlib
+        import modules.m3_uncertainty
+        importlib.reload(modules.m3_uncertainty)
         from modules.m3_uncertainty import score as _m3
         m3 = _m3(question, responses)
     progress.progress(75, text="Running M4 — NLI Entailment …")
 
     with st.spinner("Running M4 — NLI Entailment …"):
+        import importlib
+        import modules.m4_entailment
+        importlib.reload(modules.m4_entailment)
         from modules.m4_entailment import score as _m4
         m4 = _m4(question, responses)
     progress.progress(90, text="Fusing scores via M5 …")
@@ -461,9 +510,9 @@ if run:
                 st.caption(m4.get("m4_verdict", "No claims extracted."))
 
         # Evidence
-        st.subheader("Supporting evidence (M2 / M4)")
         ev_text = m2["context"] or m4.get("m4_evidence_used", "")
         ev_src  = m2.get("source", "Wikipedia")
+        st.subheader("Supporting evidence (M2 / M4)")
         if ev_text:
             st.markdown(
                 f"""<div class="evidence-box">

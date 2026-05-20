@@ -18,7 +18,6 @@ NLI labels from cross-encoder/nli-deberta-v3-small:
 
 import re
 import numpy as np
-import wikipedia
 from transformers import pipeline as hf_pipeline
 
 _nli_pipe = None
@@ -45,30 +44,66 @@ def get_nli_pipeline():
 
 def split_into_claims(text: str) -> list[str]:
     """
-    Split text into individual sentences (atomic claims).
-    Uses a simple regex; good enough for short LLM answers.
+    Split text into individual sentences (atomic claims) and strip
+    conversational fluff that confuses strict NLI models.
     """
     sentences = re.split(r'(?<=[.!?])\s+', text.strip())
-    return [s.strip() for s in sentences if len(s.strip()) >= MIN_CLAIM_LEN]
-
-
-# ─── Wikipedia retrieval (same logic as M2, kept self-contained) ──────────────
-
-def _fetch_evidence(query: str) -> str:
-    try:
-        candidates = wikipedia.search(query, results=MAX_CANDIDATES)
-    except Exception:
-        return ""
-
-    best = ""
-    for title in candidates:
-        try:
-            summary = wikipedia.summary(title, sentences=SUMMARY_SENTENCES)
-            if len(summary) > len(best):
-                best = summary
-        except Exception:
+    claims = []
+    
+    # Common LLM conversational prefixes that break strict logical entailment
+    # (Wikipedia can't entail "my last update", so NLI fails)
+    fluff_prefixes = [
+        "as of my last update",
+        "as of my last knowledge update",
+        "based on the context",
+        "according to available information",
+        "i can confirm that",
+        "it is true that",
+        "the answer is",
+        "to answer your question",
+    ]
+    
+    for s in sentences:
+        s = s.strip()
+        if not s:
             continue
-    return best
+            
+        lower_s = s.lower()
+        for fluff in fluff_prefixes:
+            if lower_s.startswith(fluff):
+                # Remove fluff and any trailing commas/spaces
+                s = s[len(fluff):].lstrip(',:; ')
+                # Capitalize first letter
+                if s:
+                    s = s[0].upper() + s[1:]
+                break
+                
+        if len(s) >= MIN_CLAIM_LEN:
+            claims.append(s)
+            
+    return claims
+
+
+# ─── Wikipedia retrieval (reuses robust M2 logic) ──────────────
+
+from modules.m2_grounding import _build_query, fetch_best_context, _extract_relevant_sentences
+
+def _fetch_evidence(question: str, answer: str) -> str:
+    # 1. Try with the entity extracted from the question
+    query = _build_query(question)
+    retrieval = fetch_best_context(query)
+    
+    # 2. Fallback: try with the entity extracted from the answer
+    if not retrieval["found"]:
+        answer_query = _build_query(answer)
+        if answer_query and answer_query != query:
+            retrieval = fetch_best_context(answer_query)
+            
+    context = retrieval["context"]
+    if context and question:
+        context = _extract_relevant_sentences(question, context, top_k=4)
+        
+    return context
 
 
 # ─── NLI scoring ─────────────────────────────────────────────────────────────
@@ -78,10 +113,17 @@ def _entailment_prob(premise: str, hypothesis: str) -> float:
     Returns the probability that `premise` entails `hypothesis`.
     """
     pipe = get_nli_pipeline()
-    result = pipe(f"{premise} [SEP] {hypothesis}", truncation=True, max_length=512)
+    # Cross-encoder NLI models expect a proper text pair so the tokenizer
+    # inserts [CLS] premise [SEP] hypothesis [SEP] correctly.
+    # Passing a single string with manual "[SEP]" breaks this.
+    result = pipe(
+        {"text": premise, "text_pair": hypothesis},
+        truncation=True,
+        max_length=512,
+    )
 
-    # result is a list of dicts: [{"label": "ENTAILMENT", "score": ...}, ...]
-    label_map = {item["label"].upper(): item["score"] for item in result[0]}
+    # result is a list of dicts: [{"label": "entailment", "score": ...}, ...]
+    label_map = {item["label"].upper(): item["score"] for item in result}
 
     # The model uses ENTAILMENT / NEUTRAL / CONTRADICTION
     return label_map.get("ENTAILMENT", 0.0)
@@ -110,7 +152,7 @@ def score(question: str, responses: list[str]) -> dict:
         }
 
     answer   = responses[0]
-    evidence = _fetch_evidence(question)
+    evidence = _fetch_evidence(question, answer)
 
     if not evidence:
         return {
