@@ -16,16 +16,11 @@ import wikipediaapi
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-# ── Fix: The `wikipedia` package's summary() is broken — Wikipedia's API
-# blocks its requests (missing/bad User-Agent), returning empty bodies that
-# cause JSONDecodeError.  We keep `wikipedia.search()` (which still works)
-# but use the `wikipedia-api` package for fetching page content reliably.
 _WIKI_API = wikipediaapi.Wikipedia(
     user_agent="AIHallucinationDetector/1.0 (educational; github.com/ai-hallucination)",
     language="en",
 )
 
-# Still need a patched session for wikipedia.search() calls
 class _TimeoutSession(requests.Session):
     def request(self, *args, **kwargs):
         kwargs.setdefault('timeout', 5.0)
@@ -40,15 +35,21 @@ _wiki_module.SESSION = _ua_session
 _model = None
 _nlp   = None
 
-MAX_CANDIDATES    = 5
+MAX_CANDIDATES    = 8    # ← increased so we have more to filter from
 SUMMARY_SENTENCES = 15
+
+# ── Titles starting with these are almost never the main article ──────────────
+_SKIP_PREFIXES = (
+    "list of", "index of", "outline of", "history of",
+    "glossary of", "category:", "template:", "wikipedia:",
+    "portal:", "file:", "talk:", "user:",
+    "career of", "filmography of", "discography of",
+    "bibliography of", "personal life of", "awards and",
+    "records of", "statistics of", "early life of",
+)
 
 
 def _get_summary(title: str, max_sentences: int = SUMMARY_SENTENCES) -> str:
-    """
-    Fetch a Wikipedia page summary using the reliable `wikipedia-api` package.
-    Returns the first `max_sentences` sentences, or an empty string on failure.
-    """
     try:
         page = _WIKI_API.page(title)
         if not page.exists():
@@ -56,7 +57,6 @@ def _get_summary(title: str, max_sentences: int = SUMMARY_SENTENCES) -> str:
         text = page.summary
         if not text:
             return ""
-        # Truncate to max_sentences
         sentences = re.split(r'(?<=[.!?])\s+', text.strip())
         return " ".join(sentences[:max_sentences])
     except Exception:
@@ -71,7 +71,6 @@ def get_model() -> SentenceTransformer:
 
 
 def get_nlp():
-    """Load spaCy model (lazy, cached)."""
     global _nlp
     if _nlp is None:
         try:
@@ -82,80 +81,95 @@ def get_nlp():
     return _nlp
 
 
-
-
 def _build_query(question: str) -> str:
     """
-    Extract the key topic from a question for Wikipedia search.
-
-    Strategy:
-      1. Named entity + meaningful words → "India population"
-      2. Noun chunks minus filler → "population India"
-      3. Fallback: first 4 meaningful words
+    Build a Wikipedia search query from the question.
+    Strips filler words AND biographical/attribute words that don't help
+    find the right article (the main article already contains all this info).
     """
-
     q = re.sub(r'[?!.,]', '', question.strip()).strip()
 
     _filler = {
         "what", "who", "where", "when", "how", "why",
         "is", "are", "was", "were", "did", "do", "does",
-        "the", "a", "an", "it", "they", "this", "that", "i",
+        "the", "a", "an", "it", "they", "this", "that",
         "tell", "me", "about", "explain", "describe",
         "give", "can", "you", "know", "information",
         "of", "in", "on", "for", "to", "with", "by", "at",
     }
 
-    nlp = get_nlp()
-    if nlp is not None and q:
-        doc = nlp(q)
+    
+    _attribute_filler = {
+        "birthday", "birthdate", "born", "birth", "age", "date",
+        "height", "weight", "nationality", "religion", "caste",
+        "death", "died", "career", "salary", "net", "worth",
+        "wife", "husband", "father", "mother", "children", "family",
+        "education", "school", "college", "university", "degree",
+        "awards", "achievements", "records", "stats", "statistics",
+        "early", "life", "personal", "biography", "bio",
+        "hometown", "residence", "address", "phone", "email",
+        "full", "name", "real", "nickname", "many", "much",
+        "old", "young", "current", "present", "famous",
+    }
 
-        # Step 1 — Named entity + topic context words
-        if doc.ents:
-            entity = doc.ents[0].text
-            # Grab meaningful non-entity, non-filler words for context
-            context_words = [
-                t.text for t in doc
-                if t.text.lower() not in _filler
-                and t.text.lower() not in entity.lower().split()
-                and not t.is_punct
-                and t.pos_ in ("NOUN", "PROPN", "ADJ")
-            ]
-            if context_words:
-                return f"{entity} {' '.join(context_words[:2])}"
-            return entity
+    all_filler = _filler | _attribute_filler
 
-        # Step 2 — Noun chunks, skip filler words
-        nouns = [chunk.text for chunk in doc.noun_chunks
-                 if chunk.text.lower() not in _filler]
-        if nouns:
-            return " ".join(nouns[:2])
+    meaningful = [w for w in q.split() if w.lower() not in all_filler]
+    return " ".join(meaningful[:6]) if meaningful else q
 
-    # Step 3 — Fallback: first 4 meaningful words
-    meaningful = [w for w in q.split() if w.lower() not in _filler]
-    return " ".join(meaningful[:4]) if meaningful else q
+# ── Common sub-article connector words ────────────────────────────────────────
+_SUBARTICLE_KEYWORDS = {
+    "career", "filmography", "discography", "bibliography",
+    "personal life", "early life", "awards", "records",
+    "statistics", "controversies", "legacy", "honors",
+}
+
+
+def _is_subarticle(title: str, query: str) -> bool:
+    """
+    Detect if a title looks like a sub-article (e.g. 'Career of Virat Kohli')
+    rather than the main article (e.g. 'Virat Kohli').
+    """
+    t = title.lower().strip()
+    # Pattern: "<keyword> of <entity>" or "<keyword> in <entity>"
+    for kw in _SUBARTICLE_KEYWORDS:
+        if t.startswith(kw + " of ") or t.startswith(kw + " in "):
+            return True
+        # e.g. "Virat Kohli career statistics"
+        if t.endswith(" " + kw):
+            return True
+    return False
 
 
 def _relevance_score(title: str, query: str, summary: str) -> float:
-    """Score a Wikipedia candidate by relevance to query."""
     model   = get_model()
-    q_lower = query.lower()
-    t_lower = title.lower()
+    q_lower = query.lower().strip()
+    t_lower = title.lower().strip()
 
-    # Title match bonus
-    title_bonus = 1.0 if q_lower in t_lower or t_lower in q_lower else 0.0
+    if not summary:
+        return 0.0
 
-    # Semantic similarity between query and summary
-    if summary:
-        emb = model.encode([query, summary], normalize_embeddings=True)
-        sem = float(np.dot(emb[0], emb[1]))
-    else:
-        sem = 0.0
+    # 1. Query vs Title similarity
+    emb_qt  = model.encode([query, title], normalize_embeddings=True)
+    title_sim = float(np.dot(emb_qt[0], emb_qt[1]))
 
-    return sem + 0.3 * title_bonus
+    # 2. Query vs Summary similarity  
+    emb_qs  = model.encode([query, summary], normalize_embeddings=True)
+    summary_sim = float(np.dot(emb_qs[0], emb_qs[1]))
+
+    # 3. Final score — title match matters more
+    score = 0.6 * title_sim + 0.4 * summary_sim
+
+    # 4. Penalize sub-articles — prefer the main entity article
+    #    e.g. "Virat Kohli" should beat "Career of Virat Kohli"
+    if _is_subarticle(title, query):
+        score *= 0.5
+
+    return score
 
 
-def _wiki_search(query: str, results: int = 5) -> list[str]:
-    """Search Wikipedia using the REST API to avoid the broken `wikipedia` package."""
+def _wiki_search(query: str, results: int = 8) -> list[str]:
+    """Search Wikipedia using the REST API."""
     url = "https://en.wikipedia.org/w/api.php"
     params = {
         "action": "query",
@@ -172,20 +186,17 @@ def _wiki_search(query: str, results: int = 5) -> list[str]:
     except Exception:
         return []
 
+
 def fetch_best_context(query: str) -> dict:
-    """
-    Search Wikipedia, validate relevance, return best matching article.
-
-    Uses a custom REST API search rather than wikipedia.search() which
-    is currently broken (throws JSONDecodeError).
-    """
-    wikipedia.set_lang("en")
-
-    # Minimum semantic relevance to accept a Wikipedia article.
-    # Clearly wrong articles score ~0.03-0.08; valid ones score 0.20+.
     MIN_RELEVANCE = 0.20
 
-    # Use robust direct API call — it returns a ranked list
+    # ── Direct page fetch HATA DO ──────────────────
+    # Yeh "paracetamol" → "Paracetamol" page deta tha
+    # but "prime minister india" → fail karta tha
+    # Ab sirf search use karo — har case handle hoga
+
+    # ── Search based retrieval ─────────────────────
+   
     candidates = _wiki_search(query, results=MAX_CANDIDATES)
 
     if not candidates:
@@ -196,16 +207,20 @@ def fetch_best_context(query: str) -> dict:
     best_title   = ""
 
     for title in candidates:
+        # Skip list/index pages
+        if any(title.lower().startswith(p) for p in _SKIP_PREFIXES):
+            continue
+
         summary = _get_summary(title)
         if not summary:
             continue
+
         sc = _relevance_score(title, query, summary)
         if sc > best_score:
             best_score   = sc
             best_summary = summary
             best_title   = title
 
-    # Reject if the best article is clearly unrelated to the query
     if not best_summary or best_score < MIN_RELEVANCE:
         return {"context": "", "source": "", "found": False}
 
@@ -215,54 +230,39 @@ def fetch_best_context(query: str) -> dict:
         "found":   True,
     }
 
+def _extract_relevant_sentences(question: str, context: str, top_k: int = 5) -> str:
+    """Extract sentences from context most relevant to the question."""
+    sentences = [s.strip() for s in context.split(".") if len(s.strip()) > 20]
 
-def _extract_relevant_sentences(question: str, context: str, top_k: int = 4) -> str:
-    """
-    Given the original question and a Wikipedia context paragraph,
-    return the top-K sentences most relevant to the question.
-
-    Why this matters
-    ----------------
-    A Wikipedia article about "Eiffel Tower" covers history, dimensions,
-    construction, tourism, etc.  If the user asked "where is the Eiffel
-    Tower?", only the location sentences are relevant for grounding —
-    comparing the answer against the full article dilutes the signal and
-    can produce false hallucination verdicts.
-    """
-    # Split context into individual sentences (simple heuristic)
-    sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', context) if s.strip()]
     if not sentences:
         return context
-    if len(sentences) <= top_k:
-        return context   # short context, no need to filter
 
+    q_words = set(question.lower().split()) - {
+        "what", "who", "where", "when", "how", "why",
+        "is", "are", "was", "the", "a", "an", "of", "in"
+    }
+
+    # Semantic scoring using embeddings
     model = get_model()
-    q_emb = model.encode([question], normalize_embeddings=True)[0]
-    s_embs = model.encode(sentences, normalize_embeddings=True)
+    try:
+        q_emb   = model.encode([question], normalize_embeddings=True)[0]
+        s_embs  = model.encode(sentences, normalize_embeddings=True)
+        scores  = [float(np.dot(q_emb, s_emb)) for s_emb in s_embs]
+    except Exception:
+        # Fallback: keyword matching
+        scores = [sum(1 for w in q_words if w in s.lower()) for s in sentences]
 
-    scores = np.dot(s_embs, q_emb)          # cosine similarity for each sentence
-    top_idx = np.argsort(scores)[::-1][:top_k]
-    top_idx_sorted = sorted(top_idx)        # preserve reading order
+    # Top-k most relevant sentences
+    ranked = sorted(zip(scores, sentences), reverse=True)
+    top_sentences = [s for _, s in ranked[:top_k]]
 
-    return " ".join(sentences[i] for i in top_idx_sorted)
+    return ". ".join(top_sentences) + "."
 
 
 def compute_grounding(answer: str, context: str, question: str = "") -> float:
-    """
-    Grounding score = cosine similarity between the LLM answer and the
-    most question-relevant sentences from the Wikipedia context.
-
-    Parameters
-    ----------
-    answer   : LLM-generated response to check.
-    context  : Wikipedia evidence paragraph.
-    question : Original user question (used to focus the context).
-                If omitted, the full context is used (legacy behaviour).
-    """
     if not context or not answer:
         return 0.0
 
-    # Focus context on sentences relevant to the question's intent
     focused_context = (
         _extract_relevant_sentences(question, context)
         if question
@@ -276,17 +276,6 @@ def compute_grounding(answer: str, context: str, question: str = "") -> float:
 
 
 def score(question: str, responses: list[str]) -> dict:
-    """
-    Main scoring function for M2 grounding module.
-
-    Fallback strategy for typos / misspellings
-    -------------------------------------------
-    If the question-based Wikipedia search fails (e.g., "effile tower"),
-    we retry using the LLM's answer as the search query.  The LLM almost
-    always corrects the spelling in its response ("Eiffel Tower"), so this
-    gives us a second chance to find the right Wikipedia article.
-    """
-
     if not responses:
         return {
             "m2_score":   0.0,
@@ -298,17 +287,16 @@ def score(question: str, responses: list[str]) -> dict:
 
     answer = responses[0]
 
-    # --- Primary search: use entity from question ---
+    # Primary search: entity from question
     query     = _build_query(question)
     retrieval = fetch_best_context(query)
 
-    # --- Fallback search: use entity from LLM answer (handles typos) ---
+    # Fallback: entity from LLM answer (handles typos in question)
     if not retrieval["found"]:
-        answer_query = _build_query(answer)           # answer is usually well-spelled
-        if answer_query and answer_query != query:    # avoid pointless repeat
+        answer_query = _build_query(answer)
+        if answer_query and answer_query != query:
             retrieval = fetch_best_context(answer_query)
 
-    # Pass original question so grounding focuses on intent-relevant sentences
     grounding = compute_grounding(answer, retrieval["context"], question=question)
 
     if not retrieval["found"]:
