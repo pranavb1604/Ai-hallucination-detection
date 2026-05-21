@@ -83,12 +83,13 @@ def get_nlp():
 
 def _build_query(question: str) -> str:
     """
-    Build a Wikipedia search query from the question.
-    Strips filler words AND biographical/attribute words that don't help
-    find the right article (the main article already contains all this info).
+    Build a Wikipedia search query from the question using NLP entity extraction.
+    This provides a universal fix for identifying the main subject (e.g., "Virat Kohli")
+    without relying on hardcoded attribute words.
     """
+    nlp = get_nlp()
     q = re.sub(r'[?!.,]', '', question.strip()).strip()
-
+    
     _filler = {
         "what", "who", "where", "when", "how", "why",
         "is", "are", "was", "were", "did", "do", "does",
@@ -97,24 +98,28 @@ def _build_query(question: str) -> str:
         "give", "can", "you", "know", "information",
         "of", "in", "on", "for", "to", "with", "by", "at",
     }
-
     
-    _attribute_filler = {
-        "birthday", "birthdate", "born", "birth", "age", "date",
-        "height", "weight", "nationality", "religion", "caste",
-        "death", "died", "career", "salary", "net", "worth",
-        "wife", "husband", "father", "mother", "children", "family",
-        "education", "school", "college", "university", "degree",
-        "awards", "achievements", "records", "stats", "statistics",
-        "early", "life", "personal", "biography", "bio",
-        "hometown", "residence", "address", "phone", "email",
-        "full", "name", "real", "nickname", "many", "much",
-        "old", "young", "current", "present", "famous",
-    }
+    if nlp is not None:
+        doc = nlp(question)
+        
+        # Look for named entities
+        target_labels = {"PERSON", "ORG", "GPE", "LOC", "FAC", "EVENT", "WORK_OF_ART", "PRODUCT"}
+        entities = [ent.text for ent in doc.ents if ent.label_ in target_labels]
+        
+        if entities:
+            return " ".join(entities)
+        
+        # If no named entities, extract noun chunks
+        noun_chunks = [
+            chunk.text for chunk in doc.noun_chunks 
+            if chunk.text.lower() not in _filler
+        ]
+        
+        if noun_chunks:
+            return noun_chunks[-1]
 
-    all_filler = _filler | _attribute_filler
-
-    meaningful = [w for w in q.split() if w.lower() not in all_filler]
+    # Fallback if NLP fails or finds nothing
+    meaningful = [w for w in q.split() if w.lower() not in _filler]
     return " ".join(meaningful[:6]) if meaningful else q
 
 # ── Common sub-article connector words ────────────────────────────────────────

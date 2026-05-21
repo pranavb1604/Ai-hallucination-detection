@@ -19,7 +19,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
 
 from config import (
-    MODEL_SAVE_PATH, TRUST_THRESHOLDS, TRUST_LABELS,
+    MODEL_SAVE_PATH, SCALER_SAVE_PATH, TRUST_THRESHOLDS, TRUST_LABELS,
     M5_INPUT_SIZE, M5_HIDDEN_SIZE_1, M5_HIDDEN_SIZE_2,
 )
 import importlib
@@ -46,23 +46,22 @@ from modules.m5_classifier   import (
 # ─── Lazy-load the trained model once ────────────────────────────────────────
 
 _model = None
+_scaler = None
 _model_loaded = False
 
 
 def _get_model():
-    global _model, _model_loaded
+    global _model, _scaler, _model_loaded
     if not _model_loaded:
         if os.path.exists(MODEL_SAVE_PATH):
             try:
-                _model = load_model(MODEL_SAVE_PATH,
-                                    M5_INPUT_SIZE,
-                                    M5_HIDDEN_SIZE_1,
-                                    M5_HIDDEN_SIZE_2)
+                _model, _scaler = load_model(MODEL_SAVE_PATH, scaler_path=SCALER_SAVE_PATH)
             except Exception as e:
                 print(f"[pipeline] Could not load model: {e}. Using fallback.")
                 _model = None
+                _scaler = None
         _model_loaded = True
-    return _model
+    return _model, _scaler
 
 
 # ─── Trust label helper ───────────────────────────────────────────────────────
@@ -105,10 +104,10 @@ def run_pipeline(question: str, responses: list[str]) -> dict:
     s4 = m4["m4_score"]
 
     # ── Fuse scores ───────────────────────────────────────────────────────────
-    model = _get_model()
+    model, scaler = _get_model()
 
     if model is not None:
-        result = predict_trust(model, s1, s2, s3, s4)
+        result = predict_trust(model, s1, s2, s3, s4, scaler=scaler)
         trust  = result["trust_score"]
         hal_p  = result["hallucination_prob"]
         scorer = "neural"

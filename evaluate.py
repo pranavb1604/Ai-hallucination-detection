@@ -33,7 +33,9 @@ from modules.m1_consistency import score as m1_score
 from modules.m2_grounding   import score as m2_score
 from modules.m3_uncertainty  import score as m3_score
 from modules.m4_entailment   import score as m4_score
-from modules.m5_classifier   import load_model, predict_trust, weighted_trust_score
+from modules.m5_classifier   import (
+    load_model, predict_trust, weighted_trust_score, build_features
+)
 
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score,
@@ -177,19 +179,26 @@ def main():
     y = np.array(labels,   dtype=np.float32)
 
     # ── Load model ────────────────────────────────────────────────────────────
+    from config import SCALER_SAVE_PATH
     use_nn = os.path.exists(MODEL_SAVE_PATH)
     if use_nn:
         print(f"\nLoading trained model from {MODEL_SAVE_PATH} …")
-        model = load_model(MODEL_SAVE_PATH, M5_INPUT_SIZE,
-                           M5_HIDDEN_SIZE_1, M5_HIDDEN_SIZE_2)
+        model, scaler = load_model(MODEL_SAVE_PATH, scaler_path=SCALER_SAVE_PATH)
     else:
         print("\n[WARN] No trained model found — using weighted fallback scorer.")
         model = None
+        scaler = None
 
     # ── Predict ───────────────────────────────────────────────────────────────
     if use_nn:
         import torch
-        X_t = torch.tensor(X, dtype=torch.float32)
+        # 1. Feature Engineering (4 -> 10 features)
+        X_eng = np.array([build_features(r[0], r[1], r[2], r[3]) for r in X], dtype=np.float32)
+        # 2. Scaling
+        if scaler is not None:
+            X_eng = scaler.transform(X_eng).astype(np.float32)
+        
+        X_t = torch.tensor(X_eng, dtype=torch.float32)
         with torch.no_grad():
             hallucination_probs = model(X_t).squeeze().numpy()
         trust_probs = 1.0 - hallucination_probs

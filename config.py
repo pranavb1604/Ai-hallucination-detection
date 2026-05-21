@@ -54,7 +54,7 @@ M2_GROUNDING_THRESHOLD = 0.5                # below this = not grounded
 # MODULE 4 — NLI ENTAILMENT
 # ─────────────────────────────────────────────
 
-M4_MODEL_NAME        = "cross-encoder/nli-deberta-v3-small"
+M4_MODEL_NAME        =  "facebook/bart-large-mnli"
 M4_EVIDENCE_LENGTH   = 500
 M4_MIN_CLAIM_LENGTH  = 10                    # ignore sentences shorter than this
 
@@ -62,15 +62,16 @@ M4_MIN_CLAIM_LENGTH  = 10                    # ignore sentences shorter than thi
 # MODULE 5 — TRUST CLASSIFIER
 # ─────────────────────────────────────────────
 
-M5_INPUT_SIZE        = 4                     # M1, M2, M3, M4 scores
-M5_HIDDEN_SIZE_1     = 16
-M5_HIDDEN_SIZE_2     = 8
+M5_INPUT_SIZE        = 10                    # M1, M2, M3, M4 scores
+M5_HIDDEN_SIZE_1     = 64
+M5_HIDDEN_SIZE_2     = 32
 M5_OUTPUT_SIZE       = 1
 M5_LEARNING_RATE     = 0.001
 M5_EPOCHS            = 100
 M5_BATCH_SIZE        = 32
 
 MODEL_SAVE_PATH      = os.path.join(BASE_DIR, "models", "trust_classifier.pth")
+SCALER_SAVE_PATH     = os.path.join(BASE_DIR, "models", "scaler_m5.pkl")
 
 # ─────────────────────────────────────────────
 # TRUST SCORE THRESHOLDS

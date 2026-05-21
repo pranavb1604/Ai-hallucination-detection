@@ -402,16 +402,15 @@ if run:
 
     # ── Fuse via M5 ───────────────────────────────────────────────────────────
     from modules.m5_classifier import load_model, predict_trust, weighted_trust_score
-    from config import M5_INPUT_SIZE, M5_HIDDEN_SIZE_1, M5_HIDDEN_SIZE_2
+    from config import M5_INPUT_SIZE, M5_HIDDEN_SIZE_1, M5_HIDDEN_SIZE_2, SCALER_SAVE_PATH
 
     s1, s2, s3, s4 = (m1["m1_score"], m2["m2_score"],
                       m3["m3_score"], m4["m4_score"])
-    if s4 == 0.0:
-     s4 = 0.5    
+     
 
     model_exists = os.path.exists(MODEL_SAVE_PATH)
     if model_exists:
-        nn_model, scaler = load_model(MODEL_SAVE_PATH)
+        nn_model, scaler = load_model(MODEL_SAVE_PATH, scaler_path=SCALER_SAVE_PATH)
         result = predict_trust(nn_model, s1, s2, s3, s4, scaler=scaler)  # ← add scaler=scaler
         trust_score = result["trust_score"]
         scorer_used = "Neural M5 classifier"

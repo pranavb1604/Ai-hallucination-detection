@@ -115,39 +115,42 @@ def _fetch_evidence(question: str, answer: str) -> str:
 # ─── NLI Scoring ──────────────────────────────────────────────────────────────
 
 def _entailment_prob(premise: str, hypothesis: str) -> float:
-    """
-    Returns the probability that `premise` entails `hypothesis`
-    using BART-large-mnli zero-shot classification.
+    
+    # ← ADD: empty check pehle
+    if not premise or not premise.strip():
+        return 0.5
+    if not hypothesis or not hypothesis.strip():
+        return 0.5
 
-    Chunks the premise into groups of 3 sentences to avoid
-    token limit truncation, and takes the best score across chunks.
-    """
     pipe = get_nli_pipeline()
 
-    # Split premise into 3-sentence chunks
     sentences = [s.strip() for s in premise.split(".") if len(s.strip()) > 20]
     chunks    = [
         ". ".join(sentences[i:i+3])
         for i in range(0, max(len(sentences), 1), 3)
     ]
+
+    # ← ADD: empty chunks check
+    chunks = [c for c in chunks if c.strip()]
     if not chunks:
         chunks = [premise[:500]]
 
     best_prob = 0.0
 
     for chunk in chunks:
+        
+        # ← ADD: skip empty/too short chunks
+        if not chunk or len(chunk.strip()) < 10:
+            continue
+
         try:
             result = pipe(
                 chunk,
                 candidate_labels=["true", "false", "unrelated"],
                 hypothesis_template="This statement is true: {}",
             )
-            # Build label → score dict
             label_score = dict(zip(result["labels"], result["scores"]))
-
-            # "true" score = entailment probability
             prob = label_score.get("true", 0.0)
-
             if prob > best_prob:
                 best_prob = prob
 
