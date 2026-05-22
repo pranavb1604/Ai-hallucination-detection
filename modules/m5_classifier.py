@@ -140,7 +140,8 @@ def predict_trust(
 
 # ─── Fallback weighted average (no trained model) ────────────────────────────
 
-_DEFAULT_WEIGHTS = np.array([0.25, 0.30, 0.20, 0.25])   # M1, M2, M3, M4
+# Adjusted weights: M2 (grounding) and M4 (entailment) are most reliable
+_DEFAULT_WEIGHTS = np.array([0.20, 0.35, 0.15, 0.30])   # M1, M2, M3, M4
 
 
 def weighted_trust_score(m1: float, m2: float, m3: float, m4: float,

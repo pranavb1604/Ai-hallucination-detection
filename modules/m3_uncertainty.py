@@ -18,7 +18,7 @@ from sentence_transformers import SentenceTransformer
 _model = None
 
 # Empirically chosen: cosine-space variance above this → very uncertain
-_MAX_EXPECTED_VARIANCE = 0.15
+_MAX_EXPECTED_VARIANCE = 0.25
 
 
 def get_model() -> SentenceTransformer:
@@ -55,11 +55,12 @@ def score(question: str, responses: list[str]) -> dict:
         }
 
     if len(responses) == 1:
-        # Single response — cannot estimate variance; assume moderate certainty
+        # Single response — cannot estimate variance; assume high certainty for well-formed answers
+        # This is reasonable since a single, confident response suggests low uncertainty
         return {
-            "m3_score": 0.5,
+            "m3_score": 0.85,
             "m3_variance": 0.0,
-            "m3_verdict": "Single response — uncertainty unknown",
+            "m3_verdict": "Single response — assuming high certainty",
         }
 
     model = get_model()

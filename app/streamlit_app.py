@@ -3,9 +3,11 @@
 import os
 import sys
 import requests
+from requests.exceptions import ReadTimeout, ConnectionError as RequestsConnectionError
 import numpy as np
 import streamlit as st
 from dotenv import load_dotenv
+import importlib
 
 # ── project root on path ──────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -13,12 +15,16 @@ sys.path.insert(0, BASE_DIR)
 
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
-from pipeline import run_pipeline
+# DON'T import pipeline or modules here - they'll be imported fresh when needed
 from config import MODEL_SAVE_PATH, TRUST_THRESHOLDS
 
 # ── Ollama config ─────────────────────────────────────────────────────────────
-OLLAMA_URL   = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "mistral")
+OLLAMA_URL        = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_MODEL      = os.getenv("OLLAMA_MODEL", "mistral")
+# First sample often loads the model into RAM/GPU — 60s is too short on CPU
+OLLAMA_TIMEOUT    = int(os.getenv("OLLAMA_TIMEOUT", "180"))
+OLLAMA_NUM_PREDICT = int(os.getenv("OLLAMA_NUM_PREDICT", "200"))
+OLLAMA_CONNECT_TIMEOUT = 10
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Page config
@@ -104,29 +110,76 @@ def check_ollama():
         return False, []
 
 
+def _ollama_generate(prompt: str, model: str, temp: float, num_predict: int) -> str:
+    """Single non-streaming call to Ollama /api/generate."""
+    r = requests.post(
+        f"{OLLAMA_URL}/api/generate",
+        json={
+            "model": model,
+            "prompt": prompt,
+            "stream": False,
+            "options": {
+                "temperature": temp,
+                "num_predict": num_predict,
+            },
+        },
+        timeout=(OLLAMA_CONNECT_TIMEOUT, OLLAMA_TIMEOUT),
+    )
+    r.raise_for_status()
+    return r.json().get("response", "").strip()
+
+
+def warmup_ollama(model: str) -> bool:
+    """
+    Load the model once so the first real sample is faster.
+    Uses a 1-token prompt; still subject to OLLAMA_TIMEOUT on slow CPUs.
+    """
+    key = f"ollama_warmed_{model}"
+    if st.session_state.get(key):
+        return True
+    try:
+        _ollama_generate("Hi", model, temp=0.1, num_predict=1)
+        st.session_state[key] = True
+        return True
+    except Exception:
+        return False
+
+
+def _ollama_error_message(sample_idx: int, err: Exception, model: str) -> str:
+    if isinstance(err, ReadTimeout):
+        return (
+            f"Ollama timed out on sample {sample_idx} (waited {OLLAMA_TIMEOUT}s). "
+            "The model may still be loading — try a smaller model (e.g. `phi3`), "
+            f'run `ollama run {model} "Hi"` in a terminal first, or set '
+            "OLLAMA_TIMEOUT=300 in `.env`."
+        )
+    if isinstance(err, RequestsConnectionError):
+        return (
+            f"Cannot reach Ollama on sample {sample_idx}. "
+            "Start the Ollama app or run `ollama serve`, then refresh."
+        )
+    return f"Ollama error on sample {sample_idx}: {err}"
+
+
 def generate_ollama_responses(question: str, n: int, model: str, temp: float):
     """Ask Ollama the same question n times and return responses."""
+    warmup_ollama(model)
+
     samples = []
+    progress = st.progress(0, text="Warming up / generating…")
     for i in range(n):
+        progress.progress(
+            i / max(n, 1),
+            text=f"Generating sample {i + 1} of {n}… (timeout {OLLAMA_TIMEOUT}s)",
+        )
         try:
-            r = requests.post(
-                f"{OLLAMA_URL}/api/generate",
-                json={
-                    "model": model,
-                    "prompt": question,
-                    "stream": False,
-                    "options": {
-                        "temperature": temp,
-                        "num_predict": 200,
-                    },
-                },
-                timeout=60,
-            )
-            text = r.json().get("response", "").strip()
+            text = _ollama_generate(question, model, temp, OLLAMA_NUM_PREDICT)
             if text:
                 samples.append(text)
         except Exception as e:
-            st.error(f"Ollama error on sample {i + 1}: {e}")
+            st.error(_ollama_error_message(i + 1, e, model))
+    progress.progress(1.0, text="Done")
+    progress.empty()
     return samples
 
 
@@ -167,6 +220,11 @@ with st.sidebar:
 
     num_samples = st.slider("Samples to generate (M1)", 3, 7, 3)
     temperature  = st.slider("Temperature", 0.1, 1.0, 0.7, 0.05)
+    st.caption(
+        f"Request timeout: **{OLLAMA_TIMEOUT}s** per sample "
+        f"(set `OLLAMA_TIMEOUT` in `.env` if needed). "
+        "First run after idle can be slow while the model loads."
+    )
 
     st.divider()
     st.subheader("Demo examples")
@@ -331,24 +389,35 @@ if run:
     # ── Run M1–M4 ─────────────────────────────────────────────────────────────
     progress = st.progress(0, text="Running M1 — Semantic Consistency …")
 
+    # Force fresh imports to avoid caching
+    import importlib
+    import modules.m1_consistency
+    import modules.m2_grounding
+    import modules.m3_uncertainty
+    import modules.m4_entailment
+    
+    importlib.reload(modules.m1_consistency)
+    importlib.reload(modules.m2_grounding)
+    importlib.reload(modules.m3_uncertainty)
+    importlib.reload(modules.m4_entailment)
+
     with st.spinner("Running M1 — Semantic Consistency …"):
-        from modules.m1_consistency import score as _m1
-        m1 = _m1(question, responses)
+        m1 = modules.m1_consistency.score(question, responses)
     progress.progress(25, text="Running M2 — Retrieval Grounding …")
 
     with st.spinner("Running M2 — Retrieval Grounding …"):
-        from modules.m2_grounding import score as _m2
-        m2 = _m2(question, responses)
+        m2 = modules.m2_grounding.score(question, responses)
     progress.progress(50, text="Running M3 — Uncertainty Estimation …")
 
     with st.spinner("Running M3 — Uncertainty Estimation …"):
-        from modules.m3_uncertainty import score as _m3
-        m3 = _m3(question, responses)
+        m3 = modules.m3_uncertainty.score(question, responses)
     progress.progress(75, text="Running M4 — NLI Entailment …")
 
     with st.spinner("Running M4 — NLI Entailment …"):
-        from modules.m4_entailment import score as _m4
-        m4 = _m4(question, responses)
+        m4 = modules.m4_entailment.score(question, responses, evidence=m2.get("context", ""))
+        # Debug: Show what evidence was passed
+        st.caption(f"[DEBUG] M2 context length: {len(m2.get('context', ''))} chars")
+        st.caption(f"[DEBUG] M4 received evidence: {bool(m2.get('context', ''))}")
     progress.progress(90, text="Fusing scores via M5 …")
 
     # ── Fuse via M5 ───────────────────────────────────────────────────────────
@@ -442,15 +511,27 @@ if run:
         with st.expander("M4 — Claim-level entailment breakdown"):
             claim_scores = m4.get("m4_claim_scores", [])
             if claim_scores:
+                st.caption(
+                    f"M4 uses **harmonic mean** (robust) for scoring: **{m4.get('m4_score', s4):.2f}** · "
+                    f"mean across claims: **{m4.get('m4_mean_score', s4):.2f}** · "
+                    f"min (worst claim): **{m4.get('m4_min_score', s4):.2f}** · "
+                    f"unsupported: **{m4.get('m4_n_unsupported', 0)}** / {len(claim_scores)}"
+                )
                 for cs in claim_scores:
-                    prob  = cs["entailment_prob"]
-                    color = ("#10b981" if prob >= 0.6 else
-                             "#f59e0b" if prob >= 0.35 else "#ef4444")
+                    prob  = cs.get("support_score", cs["entailment_prob"])
+                    ent   = cs.get("entailment_prob", 0.0)
+                    neu   = cs.get("neutral_prob", 0.0)
+                    con   = cs.get("contradiction_prob", 0.0)
+                    ok    = cs.get("supported", prob >= 0.45)
+                    color = "#10b981" if ok else "#ef4444"
+                    tag   = "supported" if ok else "not supported"
                     bar_w = int(prob * 100)
                     st.markdown(
                         f"""<div class="claim-row">
                             <em>{cs['claim']}</em><br>
-                            Entailment: <span style="color:{color};font-weight:600">{prob:.2f}</span>
+                            Support: <span style="color:{color};font-weight:600">{prob:.2f}</span>
+                            (entail {ent:.2f}, neutral {neu:.2f}, contra {con:.2f})
+                            · <span style="color:{color}">{tag}</span>
                             <div style="background:#e5e7eb;border-radius:4px;height:5px;margin-top:3px">
                               <div style="width:{bar_w}%;background:{color};height:5px;border-radius:4px"></div>
                             </div>

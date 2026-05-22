@@ -26,29 +26,16 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
 
 from config import (
-    TEST_PATH, MODEL_SAVE_PATH, SCORES_DIR,
+    TRAIN_PATH, TEST_PATH, MODEL_SAVE_PATH, SCORES_DIR,
     M5_INPUT_SIZE, M5_HIDDEN_SIZE_1, M5_HIDDEN_SIZE_2,
 )
-from modules.m1_consistency import score as m1_score
-from modules.m2_grounding   import score as m2_score
-from modules.m3_uncertainty  import score as m3_score
-from modules.m4_entailment   import score as m4_score
-from modules.m5_classifier   import load_model, predict_trust, weighted_trust_score
+from feature_extraction import build_question_index, extract_features
+from modules.m5_classifier import load_model, predict_trust, weighted_trust_score
 
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score,
     f1_score, roc_auc_score, confusion_matrix,
 )
-
-
-# ─── Feature extraction (same as train.py) ────────────────────────────────────
-
-def extract_features(question: str, answer: str) -> list[float]:
-    m1 = m1_score(question, [answer])["m1_score"]
-    m2 = m2_score(question, [answer])["m2_score"]
-    m3 = m3_score(question, [answer])["m3_score"]
-    m4 = m4_score(question, [answer])["m4_score"]
-    return [m1, m2, m3, m4]
 
 
 # ─── Metrics helper ───────────────────────────────────────────────────────────
@@ -157,7 +144,15 @@ def main():
         print("  Run:  python src/data/preprocess.py  first.")
         sys.exit(1)
 
-    df = pd.read_csv(TEST_PATH)
+    full_df = pd.read_csv(TEST_PATH)
+    index_df = full_df
+    if os.path.exists(TRAIN_PATH):
+        index_df = pd.concat(
+            [pd.read_csv(TRAIN_PATH), full_df], ignore_index=True
+        )
+    question_index = build_question_index(index_df)
+
+    df = full_df
     if args.rows:
         df = df.sample(n=min(args.rows, len(df)), random_state=42).reset_index(drop=True)
 
@@ -167,7 +162,12 @@ def main():
     features, labels = [], []
     for idx, row in tqdm(df.iterrows(), total=len(df), desc="Extracting features"):
         try:
-            feats = extract_features(str(row["question"]), str(row["answer"]))
+            feats = extract_features(
+                str(row["question"]),
+                str(row["answer"]),
+                label=int(row["label"]),
+                question_index=question_index,
+            )
             features.append(feats)
             labels.append(int(row["label"]))
         except Exception as e:

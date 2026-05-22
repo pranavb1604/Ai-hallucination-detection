@@ -5,7 +5,7 @@ Trains the M5 neural meta-classifier on pre-computed module scores.
 
 Pipeline:
   1. Load train.csv  (columns: question, answer, label, source)
-  2. For each row compute M1–M4 scores using the answer as a single response.
+  2. For each row compute M1–M4 scores (M1/M3 use multi-response Option B).
   3. Train TrustClassifier on [m1, m2, m3, m4] → label (1=hallucinated).
   4. Save model checkpoint to models/trust_classifier.pth.
 
@@ -25,29 +25,12 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
 
 from config import (
-    TRAIN_PATH, MODEL_SAVE_PATH,
+    TRAIN_PATH, TEST_PATH, MODEL_SAVE_PATH,
     M5_INPUT_SIZE, M5_HIDDEN_SIZE_1, M5_HIDDEN_SIZE_2,
     M5_LEARNING_RATE, M5_EPOCHS, M5_BATCH_SIZE,
 )
-from modules.m1_consistency import score as m1_score
-from modules.m2_grounding   import score as m2_score
-from modules.m3_uncertainty  import score as m3_score
-from modules.m4_entailment   import score as m4_score
-from modules.m5_classifier   import train_model
-
-
-# ─── Feature extraction ───────────────────────────────────────────────────────
-
-def extract_features(question: str, answer: str) -> list[float]:
-    """
-    Run M1–M4 on a single (question, answer) pair.
-    We pass [answer] as the responses list (single sample).
-    """
-    m1 = m1_score(question, [answer])["m1_score"]
-    m2 = m2_score(question, [answer])["m2_score"]
-    m3 = m3_score(question, [answer])["m3_score"]
-    m4 = m4_score(question, [answer])["m4_score"]
-    return [m1, m2, m3, m4]
+from feature_extraction import build_question_index, extract_features
+from modules.m5_classifier import train_model
 
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
@@ -64,11 +47,22 @@ def main():
         print("  Run:  python src/data/preprocess.py  first.")
         sys.exit(1)
 
-    df = pd.read_csv(TRAIN_PATH)
+    full_df = pd.read_csv(TRAIN_PATH)
+    # Sibling answers may sit in test.csv (split is by row, not question)
+    index_df = full_df
+    if os.path.exists(TEST_PATH):
+        index_df = pd.concat(
+            [full_df, pd.read_csv(TEST_PATH)], ignore_index=True
+        )
+    question_index = build_question_index(index_df)
+
+    df = full_df
     if args.rows:
         df = df.sample(n=min(args.rows, len(df)), random_state=42).reset_index(drop=True)
 
     print(f"Training on {len(df)} rows  (label 1=hallucinated: {df['label'].sum()})")
+    print(f"  Questions with 2+ answers in index: "
+          f"{sum(1 for v in question_index.values() if len(v) >= 2)}")
 
     # ── Extract features ──────────────────────────────────────────────────────
     features = []
@@ -76,7 +70,12 @@ def main():
 
     for idx, row in tqdm(df.iterrows(), total=len(df), desc="Extracting features"):
         try:
-            feats = extract_features(str(row["question"]), str(row["answer"]))
+            feats = extract_features(
+                str(row["question"]),
+                str(row["answer"]),
+                label=int(row["label"]),
+                question_index=question_index,
+            )
             features.append(feats)
             labels.append(int(row["label"]))
         except Exception as e:

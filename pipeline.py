@@ -84,7 +84,10 @@ def run_pipeline(question: str, responses: list[str]) -> dict:
     m1 = m1_score(question, responses)
     m2 = m2_score(question, responses)
     m3 = m3_score(question, responses)
-    m4 = m4_score(question, responses)
+    
+    # Pass M2's retrieved context to M4 to avoid redundant Wikipedia calls
+    m2_context = m2.get("context", "")
+    m4 = m4_score(question, responses, evidence=m2_context)
 
     s1 = m1["m1_score"]
     s2 = m2["m2_score"]

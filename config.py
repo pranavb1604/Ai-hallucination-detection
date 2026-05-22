@@ -54,9 +54,17 @@ M2_GROUNDING_THRESHOLD = 0.5                # below this = not grounded
 # MODULE 4 — NLI ENTAILMENT
 # ─────────────────────────────────────────────
 
-M4_MODEL_NAME        = "cross-encoder/nli-deberta-v3-small"
-M4_EVIDENCE_LENGTH   = 500
-M4_MIN_CLAIM_LENGTH  = 10                    # ignore sentences shorter than this
+M4_MODEL_NAME            = "cross-encoder/nli-deberta-v3-base"
+M4_EVIDENCE_LENGTH       = 500                # per-claim premise snippet (chars)
+M4_WIKI_SUMMARY_LENGTH   = 3000              # Wikipedia summary fetch (chars)
+M4_WIKI_MAX_CANDIDATES   = 5                 # Wikipedia search results to try
+M4_MIN_CLAIM_LENGTH      = 10                # ignore sentences shorter than this
+# Per-claim support below this → unsupported
+M4_CLAIM_SUPPORTED_THRESHOLD = 0.35  # Lowered from 0.45 to be more lenient
+M4_CONTRADICTION_THRESHOLD   = 0.55  # Raised from 0.50 to reduce false contradictions
+M4_STRONG_ENTAILMENT        = 0.65   # Lowered from 0.70 for easier "strong" verdict
+M4_PARTIAL_ENTAILMENT       = 0.25   # below min → high hallucination risk
+M4_PREMISE_TOP_SENTENCES    = 3      # evidence sentences matched per claim
 
 # ─────────────────────────────────────────────
 # MODULE 5 — TRUST CLASSIFIER

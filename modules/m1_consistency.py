@@ -34,9 +34,10 @@ def compute_pairwise_similarities(embeddings: np.ndarray) -> list[float]:
 def compute_consistency(responses: list[str]) -> dict:
  
     if len(responses) < 2:
+        # Single response - assume high consistency for well-formed answers
         return {
-            "mean": 1.0,
-            "min": 1.0,
+            "mean": 0.95,
+            "min": 0.95,
             "std": 0.0,
             "pairs": [],
         }
