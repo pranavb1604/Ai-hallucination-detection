@@ -1,25 +1,15 @@
 """
-M5 — Neural Meta-Classifier (Trust Calibration Engine) — IMPROVED
-A deeper PyTorch network that fuses M1–M4 scores into a single
-calibrated Trust Score in [0, 1].
+M5 — Meta-classifier (Trust Calibration Engine)
 
-Improvements over original:
-  1. 10 engineered features instead of 4 raw scores
-  2. Deeper network with BatchNorm + Dropout
-  3. StandardScaler normalization (saved alongside model)
-  4. Learning rate scheduler + early stopping
-  5. Train/val split with validation tracking
-  6. M4 zero-score neutralization (0.0 → 0.5)
+Backends:
+  - gb  : GradientBoosting (recommended for 80%+ on module scores)
+  - nn  : PyTorch MLP (legacy)
+  - auto: train both, keep higher validation accuracy
 
-Architecture:
-    Input (10) → FC(64) → BN → ReLU → Drop(0.3)
-               → FC(32) → BN → ReLU → Drop(0.2)
-               → FC(16) → ReLU
-               → FC(1)  → Sigmoid
-
-Loss:      Binary Cross Entropy
-Optimiser: Adam + ReduceLROnPlateau
+Saves a single bundle: models/m5_bundle.pkl
 """
+
+from __future__ import annotations
 
 import os
 import numpy as np
@@ -28,38 +18,29 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, classification_report
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.metrics import accuracy_score, classification_report, f1_score
 import joblib
 
-# ─── Constants ────────────────────────────────────────────────────────────────
+from modules.m5_features import (
+    FEATURE_DIM,
+    FEATURE_NAMES,
+    build_feature_vector,
+    build_batch,
+    neutralize_m4,
+)
 
-FEATURE_DIM = 10
-DEVICE      = "cuda" if torch.cuda.is_available() else "cpu"
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-# ─── Feature Engineering ──────────────────────────────────────────────────────
 
-def neutralize_m4(m4: float) -> float:
-    return 0.5 if m4 == 0.0 else m4
-
+# ─── Backward-compatible 10-dim builder (evaluate ablation) ─────────────────
 
 def build_features(m1: float, m2: float, m3: float, m4: float) -> list:
-    m4     = neutralize_m4(m4)
-    scores = [m1, m2, m3, m4]
-    return [
-        m1,
-        m2,
-        m3,
-        m4,
-        float(np.mean(scores)),
-        float(np.std(scores)),
-        float(np.min(scores)),
-        float(np.max(scores)),
-        m1 * m4,
-        float(m4 <= 0.5),
-    ]
+    v = build_feature_vector(m1, m2, m3, m4)
+    return v[:10].tolist()
 
 
-# ─── Network Definition ───────────────────────────────────────────────────────
+# ─── PyTorch network (legacy backend) ─────────────────────────────────────────
 
 class TrustClassifier(nn.Module):
     def __init__(self, input_size: int = FEATURE_DIM):
@@ -83,44 +64,94 @@ class TrustClassifier(nn.Module):
         return self.net(x)
 
 
-# ─── Training Helper ──────────────────────────────────────────────────────────
+# ─── Threshold tuning ───────────────────────────────────────────────────────
 
-def train_model(
-    X_train:     np.ndarray,
-    y_train:     np.ndarray,
-    lr:          float = 1e-3,
-    epochs:      int   = 500,
-    batch_size:  int   = 64,
-    patience:    int   = 30,
-    val_split:   float = 0.15,
-    save_path:   str   = None,
-    scaler_path: str   = None,
-    verbose:     bool  = True,
-) -> tuple:
+def _tune_threshold(y_true: np.ndarray, probs: np.ndarray) -> tuple[float, float]:
+    best_t, best_acc = 0.5, 0.0
+    for t in np.arange(0.25, 0.76, 0.01):
+        pred = (probs >= t).astype(int)
+        acc = accuracy_score(y_true, pred)
+        if acc > best_acc:
+            best_acc, best_t = acc, float(t)
+    return best_t, best_acc
 
-    # 1. Build engineered features
-    X_eng = np.array(
-        [build_features(r[0], r[1], r[2], r[3]) for r in X_train],
-        dtype=np.float32
-    )
 
-    # 2. Train / val split
+def _meta_dict(m1: float, m2: float, m3: float, m4: float, meta: dict | None) -> dict:
+    return meta or {}
+
+
+# ─── Train GB ─────────────────────────────────────────────────────────────────
+
+def _train_gb(
+    X_eng: np.ndarray,
+    y_train: np.ndarray,
+    val_split: float,
+    verbose: bool,
+) -> tuple[GradientBoostingClassifier, StandardScaler, float, float, dict]:
     X_tr, X_val, y_tr, y_val = train_test_split(
-        X_eng, y_train, test_size=val_split, random_state=42, stratify=y_train
+        X_eng, y_train, test_size=val_split, random_state=42, stratify=y_train,
     )
 
-    # 3. Normalize
     scaler = StandardScaler()
-    X_tr   = scaler.fit_transform(X_tr).astype(np.float32)
-    X_val  = scaler.transform(X_val).astype(np.float32)
+    X_tr_s = scaler.fit_transform(X_tr)
+    X_val_s = scaler.transform(X_val)
 
-    if scaler_path:
-        os.makedirs(os.path.dirname(scaler_path), exist_ok=True)
-        joblib.dump(scaler, scaler_path)
-        if verbose:
-            print(f"  Scaler saved → {scaler_path}")
+    clf = GradientBoostingClassifier(
+        n_estimators=400,
+        max_depth=5,
+        learning_rate=0.05,
+        subsample=0.85,
+        min_samples_leaf=8,
+        random_state=42,
+    )
+    clf.fit(X_tr_s, y_tr.astype(int))
 
-    # 4. DataLoaders
+    probs = clf.predict_proba(X_val_s)[:, 1]
+    threshold, val_acc = _tune_threshold(y_val, probs)
+    val_f1 = f1_score(y_val, (probs >= threshold).astype(int), zero_division=0)
+
+    report = {
+        "backend": "gb",
+        "val_accuracy": val_acc,
+        "val_f1": val_f1,
+        "threshold": threshold,
+        "y_val": y_val,
+        "probs": probs,
+    }
+
+    if verbose:
+        print("\n-- Gradient Boosting Validation --")
+        print(f"  Val accuracy  : {val_acc:.4f}")
+        print(f"  Val F1        : {val_f1:.4f}")
+        print(f"  Threshold     : {threshold:.2f}")
+        preds = (probs >= threshold).astype(int)
+        print(classification_report(
+            y_val, preds, target_names=["Correct", "Hallucinated"],
+        ))
+
+    return clf, scaler, threshold, val_acc, report
+
+
+# ─── Train NN ─────────────────────────────────────────────────────────────────
+
+def _train_nn(
+    X_eng: np.ndarray,
+    y_train: np.ndarray,
+    lr: float,
+    epochs: int,
+    batch_size: int,
+    patience: int,
+    val_split: float,
+    verbose: bool,
+) -> tuple[TrustClassifier, StandardScaler, float, float, dict]:
+    X_tr, X_val, y_tr, y_val = train_test_split(
+        X_eng, y_train, test_size=val_split, random_state=42, stratify=y_train,
+    )
+
+    scaler = StandardScaler()
+    X_tr_s = scaler.fit_transform(X_tr).astype(np.float32)
+    X_val_s = scaler.transform(X_val).astype(np.float32)
+
     def make_loader(X, y, shuffle=False):
         ds = TensorDataset(
             torch.tensor(X, dtype=torch.float32),
@@ -128,28 +159,24 @@ def train_model(
         )
         return DataLoader(ds, batch_size=batch_size, shuffle=shuffle)
 
-    train_loader = make_loader(X_tr,  y_tr,  shuffle=True)
-    val_loader   = make_loader(X_val, y_val, shuffle=False)
+    train_loader = make_loader(X_tr_s, y_tr, shuffle=True)
+    val_loader = make_loader(X_val_s, y_val, shuffle=False)
 
-    # 5. Model / optimizer / scheduler
-    # FIX: verbose argument removed (not supported in older PyTorch versions)
-    model     = TrustClassifier(input_size=FEATURE_DIM).to(DEVICE)
+    model = TrustClassifier(input_size=FEATURE_DIM).to(DEVICE)
     criterion = nn.BCELoss()
     optimiser = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimiser, mode="min", patience=10, factor=0.5
+        optimiser, mode="min", patience=10, factor=0.5,
     )
 
-    # 6. Training loop with early stopping
     if verbose:
-        print(f"\nTraining TrustClassifier on {DEVICE} for up to {epochs} epochs ...")
+        print(f"\nTraining neural M5 on {DEVICE} for up to {epochs} epochs ...")
 
-    best_val_loss    = float("inf")
-    best_state       = None
+    best_val_loss = float("inf")
+    best_state = None
     patience_counter = 0
 
     for epoch in range(1, epochs + 1):
-        # train
         model.train()
         train_loss = 0.0
         for xb, yb in train_loader:
@@ -159,27 +186,24 @@ def train_model(
             loss.backward()
             optimiser.step()
             train_loss += loss.item() * len(xb)
-        train_loss /= len(X_tr)
+        train_loss /= len(X_tr_s)
 
-        # validate
         model.eval()
         val_loss = 0.0
         with torch.no_grad():
             for xb, yb in val_loader:
                 xb, yb = xb.to(DEVICE), yb.to(DEVICE)
                 val_loss += criterion(model(xb), yb).item() * len(xb)
-        val_loss /= len(X_val)
+        val_loss /= len(X_val_s)
 
         scheduler.step(val_loss)
 
         if verbose and (epoch % 10 == 0 or epoch == 1):
-            print(f"  Epoch {epoch:>4}/{epochs}  "
-                  f"train_loss={train_loss:.4f}  val_loss={val_loss:.4f}")
+            print(f"  Epoch {epoch:>4}/{epochs}  train_loss={train_loss:.4f}  val_loss={val_loss:.4f}")
 
-        # early stopping
         if val_loss < best_val_loss - 1e-4:
-            best_val_loss    = val_loss
-            best_state       = {k: v.clone() for k, v in model.state_dict().items()}
+            best_val_loss = val_loss
+            best_state = {k: v.clone() for k, v in model.state_dict().items()}
             patience_counter = 0
         else:
             patience_counter += 1
@@ -188,98 +212,228 @@ def train_model(
                     print(f"\n  Early stopping at epoch {epoch}")
                 break
 
-    # 7. Restore best weights
     if best_state:
         model.load_state_dict(best_state)
 
-    # 8. Save checkpoint
-    if save_path:
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        torch.save({
-            "model_state": model.state_dict(),
-            "input_size":  FEATURE_DIM,
-            "val_loss":    best_val_loss,
-        }, save_path)
-        if verbose:
-            print(f"  Model saved → {save_path}")
+    model.eval()
+    with torch.no_grad():
+        probs = []
+        for xb, _ in val_loader:
+            probs.extend(model(xb.to(DEVICE)).cpu().numpy().flatten())
+    probs = np.array(probs)
+    threshold, val_acc = _tune_threshold(y_val, probs)
+    val_f1 = f1_score(y_val, (probs >= threshold).astype(int), zero_division=0)
 
-    # 9. Final validation report
     if verbose:
-        model.eval()
-        all_preds, all_labels = [], []
-        with torch.no_grad():
-            for xb, yb in val_loader:
-                preds = model(xb.to(DEVICE))
-                all_preds.extend((preds.cpu().numpy() > 0.5).astype(int).flatten())
-                all_labels.extend(yb.numpy().astype(int).flatten())
-        print(f"\n── Validation Report ──")
-        print(f"  Best val loss : {best_val_loss:.4f}")
-        print(f"  Val accuracy  : {accuracy_score(all_labels, all_preds):.4f}")
-        print(classification_report(
-            all_labels, all_preds,
-            target_names=["Correct", "Hallucinated"]
-        ))
+        print("\n-- Neural Validation --")
+        print(f"  Val accuracy  : {val_acc:.4f}")
+        print(f"  Val F1        : {val_f1:.4f}")
+        print(f"  Threshold     : {threshold:.2f}")
 
-    model.eval()
-    return model, scaler
+    report = {"backend": "nn", "val_accuracy": val_acc, "val_f1": val_f1, "threshold": threshold}
+    return model, scaler, threshold, val_acc, report
 
 
-# ─── Inference Helpers ────────────────────────────────────────────────────────
+# ─── Public training API ──────────────────────────────────────────────────────
 
-def load_model(
-    save_path:   str,
-    scaler_path: str = None,
+def train_model(
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    questions: list | np.ndarray | None = None,
+    answers: list | np.ndarray | None = None,
+    sample_modes: list | None = None,
+    lr: float = 1e-3,
+    epochs: int = 500,
+    batch_size: int = 64,
+    patience: int = 30,
+    val_split: float = 0.15,
+    backend: str = "auto",
+    save_path: str | None = None,
+    scaler_path: str | None = None,
+    verbose: bool = True,
 ) -> tuple:
-    checkpoint = torch.load(save_path, map_location="cpu", weights_only=False)
 
-    if isinstance(checkpoint, dict) and "model_state" in checkpoint:
-        state  = checkpoint["model_state"]
-        in_dim = checkpoint.get("input_size", FEATURE_DIM)
+    metas = None
+    if sample_modes is not None:
+        metas = [{"sample_mode": sm} for sm in sample_modes]
+
+    X_eng = build_batch(
+        X_train.astype(np.float32),
+        questions=list(questions) if questions is not None else None,
+        answers=list(answers) if answers is not None else None,
+        metas=metas,
+    )
+
+    if verbose:
+        print(f"  Engineered features: {X_eng.shape[1]} dims")
+
+    bundles = {}
+
+    if backend in ("gb", "auto"):
+        gb_clf, gb_scaler, gb_thr, gb_acc, _ = _train_gb(X_eng, y_train, val_split, verbose)
+        bundles["gb"] = {
+            "model": gb_clf,
+            "scaler": gb_scaler,
+            "threshold": gb_thr,
+            "val_accuracy": gb_acc,
+        }
+
+    if backend in ("nn", "auto"):
+        nn_model, nn_scaler, nn_thr, nn_acc, _ = _train_nn(
+            X_eng, y_train, lr, epochs, batch_size, patience, val_split, verbose,
+        )
+        bundles["nn"] = {
+            "model": nn_model,
+            "scaler": nn_scaler,
+            "threshold": nn_thr,
+            "val_accuracy": nn_acc,
+        }
+
+    if backend == "auto":
+        winner = "gb" if bundles["gb"]["val_accuracy"] >= bundles["nn"]["val_accuracy"] else "nn"
+        if verbose:
+            print(f"\n  Selected backend: {winner.upper()} "
+                  f"(gb={bundles['gb']['val_accuracy']:.4f}, nn={bundles['nn']['val_accuracy']:.4f})")
     else:
-        state  = checkpoint
-        in_dim = 4
+        winner = backend
 
-    model = TrustClassifier(input_size=in_dim)
-    model.load_state_dict(state)
-    model.eval()
+    chosen = bundles[winner]
+    bundle = {
+        "backend": winner,
+        "model": chosen["model"],
+        "scaler": chosen["scaler"],
+        "threshold": chosen["threshold"],
+        "feature_dim": FEATURE_DIM,
+        "feature_names": FEATURE_NAMES,
+        "val_accuracy": chosen["val_accuracy"],
+    }
 
-    scaler = joblib.load(scaler_path) if scaler_path and os.path.exists(scaler_path) else None
+    bundle_path = save_path
+    if bundle_path:
+        if bundle_path.endswith(".pth"):
+            bundle_path = os.path.join(os.path.dirname(bundle_path), "m5_bundle.pkl")
+        os.makedirs(os.path.dirname(bundle_path) or ".", exist_ok=True)
+        joblib.dump(bundle, bundle_path)
+        if verbose:
+            print(f"  Bundle saved -> {bundle_path}")
 
-    return model, scaler
+        if scaler_path and scaler_path != bundle_path:
+            joblib.dump(chosen["scaler"], scaler_path)
+
+        if winner == "nn" and save_path and save_path.endswith(".pth"):
+            torch.save({
+                "model_state": chosen["model"].state_dict(),
+                "input_size": FEATURE_DIM,
+            }, save_path)
+
+    if winner == "gb":
+        return chosen["model"], chosen["scaler"]
+    return chosen["model"], chosen["scaler"]
+
+
+# ─── Load & predict ───────────────────────────────────────────────────────────
+
+def _load_bundle(path: str) -> dict | None:
+    if path and os.path.exists(path):
+        return joblib.load(path)
+    return None
+
+
+def load_model(save_path: str, scaler_path: str | None = None) -> tuple:
+    """Load M5 bundle (gb or nn). Falls back to legacy .pth neural checkpoint."""
+    bundle_path = save_path.replace(".pth", "_bundle.pkl") if save_path.endswith(".pth") else save_path
+    alt = os.path.join(os.path.dirname(save_path or "."), "m5_bundle.pkl")
+
+    bundle = _load_bundle(bundle_path) or _load_bundle(alt)
+    if bundle is not None:
+        return bundle, bundle.get("scaler")
+
+    if save_path and os.path.exists(save_path):
+        checkpoint = torch.load(save_path, map_location="cpu", weights_only=False)
+        if isinstance(checkpoint, dict) and "model_state" in checkpoint:
+            in_dim = checkpoint.get("input_size", FEATURE_DIM)
+            model = TrustClassifier(input_size=in_dim)
+            model.load_state_dict(checkpoint["model_state"])
+            model.eval()
+            scaler = joblib.load(scaler_path) if scaler_path and os.path.exists(scaler_path) else None
+            legacy = {
+                "backend": "nn",
+                "model": model,
+                "scaler": scaler,
+                "threshold": 0.5,
+                "feature_dim": in_dim,
+            }
+            return legacy, scaler
+
+    return None, None
+
+
+def _hallucination_prob(bundle: dict, features: np.ndarray) -> float:
+    scaler = bundle.get("scaler")
+    thr = bundle.get("threshold", 0.5)
+    x = features.reshape(1, -1)
+    if scaler is not None:
+        x = scaler.transform(x)
+
+    if bundle.get("backend") == "gb":
+        prob = float(bundle["model"].predict_proba(x)[0, 1])
+        return prob
+
+    model = bundle["model"]
+    xt = torch.tensor(x.astype(np.float32))
+    with torch.no_grad():
+        return float(model(xt).squeeze())
 
 
 def predict_trust(
-    model:  TrustClassifier,
-    m1: float, m2: float, m3: float, m4: float,
-    scaler: StandardScaler = None,
+    model,
+    m1: float,
+    m2: float,
+    m3: float,
+    m4: float,
+    scaler: StandardScaler | None = None,
+    question: str | None = None,
+    answer: str | None = None,
+    meta: dict | None = None,
 ) -> dict:
-    features = np.array([build_features(m1, m2, m3, m4)], dtype=np.float32)
+    """Predict trust score. `model` may be a bundle dict from load_model."""
+    bundle = model if isinstance(model, dict) and "backend" in model else None
+    if bundle is None:
+        bundle = {"backend": "nn", "model": model, "scaler": scaler, "threshold": 0.5}
 
-    if scaler is not None:
-        features = scaler.transform(features).astype(np.float32)
-
-    x = torch.tensor(features, dtype=torch.float32)
-    with torch.no_grad():
-        hallucination_prob = float(model(x).squeeze())
-
+    feats = build_feature_vector(m1, m2, m3, m4, question=question, answer=answer, meta=meta)
+    hallucination_prob = _hallucination_prob(bundle, feats)
     trust_score = 1.0 - hallucination_prob
 
     return {
-        "trust_score":        round(trust_score, 4),
+        "trust_score": round(trust_score, 4),
         "hallucination_prob": round(hallucination_prob, 4),
+        "decision_threshold": bundle.get("threshold", 0.5),
     }
 
 
-# ─── Fallback Weighted Average (no trained model) ─────────────────────────────
+def predict_batch(
+    bundle: dict,
+    X_four: np.ndarray,
+    questions: list[str] | None = None,
+    answers: list[str] | None = None,
+) -> np.ndarray:
+    """Return hallucination probabilities for a batch."""
+    X_eng = build_batch(X_four, questions=questions, answers=answers)
+    probs = []
+    for row in X_eng:
+        probs.append(_hallucination_prob(bundle, row))
+    return np.array(probs, dtype=np.float32)
+
 
 _DEFAULT_WEIGHTS = np.array([0.25, 0.30, 0.20, 0.25])
 
 
 def weighted_trust_score(
     m1: float, m2: float, m3: float, m4: float,
-    weights: np.ndarray = None,
+    weights: np.ndarray | None = None,
 ) -> float:
-    w      = weights if weights is not None else _DEFAULT_WEIGHTS
-    w      = w / w.sum()
+    w = weights if weights is not None else _DEFAULT_WEIGHTS
+    w = w / w.sum()
     scores = np.array([m1, m2, m3, neutralize_m4(m4)])
     return float(np.clip(np.dot(w, scores), 0.0, 1.0))

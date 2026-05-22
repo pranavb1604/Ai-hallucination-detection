@@ -1,25 +1,12 @@
-import sys
-sys.stdout.reconfigure(line_buffering=True, encoding='utf-8')
+"""Quick check: Wikipedia retrieval + M4 entailment."""
+from modules.m2_grounding import fetch_evidence_for_qa
 from modules.m4_entailment import score as m4_score
-from modules.m2_grounding import fetch_best_context, _build_query
 
-q = 'Who is the Prime Minister of India'
-ans = 'As of my last update, the Prime Minister of India is Narendra Modi. He has been in office since May 2014.'
+question = "Who is the prime minister of India?"
+answer = "Narendra Modi is the prime minister of India."
 
-query = _build_query(q)
-print('Query to Wikipedia:', repr(query))
+retrieval = fetch_evidence_for_qa(question, answer)
+print("Wiki:", retrieval.get("title"), "| rel=", retrieval.get("relevance"))
 
-retrieval = fetch_best_context(query)
-print('Source:', retrieval['source'])
-print('Context fetched.')
-# Check if Narendra Modi is mentioned in the fetched context
-context = retrieval['context']
-if context:
-    print('Does context mention Modi?:', 'Modi' in context)
-
-r4 = m4_score(q, [ans])
-print('\nM4 claims and scores:')
-for claim in r4['m4_claim_scores']:
-    print(f"- Claim: {claim['claim']}")
-    print(f"  Score: {claim['entailment_prob']}")
-print('Overall M4 score:', r4['m4_score'])
+m4 = m4_score(question, [answer])
+print("M4 score:", m4["m4_score"], "|", m4["m4_verdict"])

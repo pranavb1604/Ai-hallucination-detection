@@ -17,7 +17,7 @@ from transformers import pipeline as hf_pipeline
 
 _nli_pipe = None
 
-NLI_MODEL     = "facebook/bart-large-mnli"   # much better than deberta-v3-small
+NLI_MODEL = "typeform/distilbert-base-uncased-mnli"   # much better than deberta-v3-small
 MIN_CLAIM_LEN = 10                            # characters — skip very short fragments
 
 
@@ -82,27 +82,12 @@ def split_into_claims(text: str) -> list[str]:
 
 # ─── Wikipedia Retrieval (reuses M2 logic) ────────────────────────────────────
 
-from modules.m2_grounding import _build_query, fetch_best_context, _extract_relevant_sentences
+from modules.m2_grounding import fetch_evidence_for_qa, _extract_relevant_sentences
 
 
 def _fetch_evidence(question: str, answer: str) -> str:
-    """
-    Fetch Wikipedia evidence for the question.
-    Falls back to answer-based query if question-based fails.
-    """
-    # Try 1: query from question
-    query     = _build_query(question)
-    retrieval = fetch_best_context(query) if query else {"found": False, "context": ""}
-
-    # Try 2: raw question directly
-    if not retrieval["found"] or not retrieval["context"]:
-        retrieval = fetch_best_context(question[:80])
-
-    # Try 3: first sentence of answer
-    if not retrieval["found"] or not retrieval["context"]:
-        first_sentence = answer.split(".")[0][:80]
-        retrieval = fetch_best_context(first_sentence)
-
+    """Fetch best Wikipedia passage (multi-query + relevance ranking)."""
+    retrieval = fetch_evidence_for_qa(question, answer)
     context = retrieval.get("context", "")
 
     # Focus context on most relevant sentences

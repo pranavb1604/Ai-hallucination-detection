@@ -5,12 +5,16 @@ Trains the M5 neural meta-classifier on pre-computed module scores.
 
 Pipeline:
   1. Load train.csv  (columns: question, answer, label, source)
-  2. For each row compute M1–M4 scores using the answer as a single response.
-  3. Train TrustClassifier on [m1, m2, m3, m4] → label (1=hallucinated).
-  4. Save model checkpoint to models/trust_classifier.pth.
+  2. For each row compute M1–M4 (M1/M3 use sentence pseudo-samples when possible;
+     M2/M4 use the primary answer — same rules as Ollama inference).
+  3. Train M5 meta-classifier (20 features + Gradient Boosting, auto-tuned threshold).
+  4. Save bundle to models/m5_bundle.pkl
 
 Usage:
-    python train.py [--rows N]   # --rows limits dataset size for quick tests
+    python train.py            # full dataset
+    python train.py --rows 500 # quick test with 500 rows
+    python train.py --resume   # skip already-scored rows
+    python train.py --fresh    # delete old scores + re-run with new Wikipedia retrieval
 """
 
 import sys
@@ -20,43 +24,60 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-# ── project root on path ──────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
 
 from config import (
-    TRAIN_PATH, MODEL_SAVE_PATH,
-    M5_INPUT_SIZE, M5_HIDDEN_SIZE_1, M5_HIDDEN_SIZE_2,
-    M5_LEARNING_RATE, M5_EPOCHS, M5_BATCH_SIZE,
+    TRAIN_PATH, MODEL_SAVE_PATH, M5_BUNDLE_PATH, SCALER_SAVE_PATH,
+    M5_LEARNING_RATE, M5_EPOCHS, M5_BATCH_SIZE, M5_BACKEND,
 )
-from modules.m1_consistency import score as m1_score
-from modules.m2_grounding   import score as m2_score
-from modules.m3_uncertainty  import score as m3_score
-from modules.m4_entailment   import score as m4_score
-from modules.m5_classifier   import train_model
+from modules.feature_extraction import extract_all
+from modules.m5_classifier import train_model
+
+SCORES_CACHE = os.path.join(BASE_DIR, "data", "processed", "train_with_scores.csv")
 
 
-# ─── Feature extraction ───────────────────────────────────────────────────────
-
-def extract_features(question: str, answer: str) -> list[float]:
-    """
-    Run M1–M4 on a single (question, answer) pair.
-    We pass [answer] as the responses list (single sample).
-    """
-    m1 = m1_score(question, [answer])["m1_score"]
-    m2 = m2_score(question, [answer])["m2_score"]
-    m3 = m3_score(question, [answer])["m3_score"]
-    m4 = m4_score(question, [answer])["m4_score"]
-    return [m1, m2, m3, m4]
+def _fit_m5(scored_df: pd.DataFrame):
+    X = scored_df[["m1_score", "m2_score", "m3_score", "m4_score"]].values.astype("float32")
+    y = scored_df["label"].values.astype("float32")
+    modes = scored_df["sample_mode"].tolist() if "sample_mode" in scored_df.columns else None
+    print(f"\nFeature matrix : {X.shape}")
+    print(f"Hallucinated(1): {int(y.sum())} | Correct(0): {int((y == 0).sum())}")
+    print(f"M5 backend     : {M5_BACKEND}")
+    return train_model(
+        X_train=X,
+        y_train=y,
+        questions=scored_df["question"].tolist(),
+        answers=scored_df["answer"].tolist(),
+        sample_modes=modes,
+        lr=M5_LEARNING_RATE,
+        epochs=M5_EPOCHS,
+        batch_size=M5_BATCH_SIZE,
+        backend=M5_BACKEND,
+        save_path=M5_BUNDLE_PATH,
+        scaler_path=SCALER_SAVE_PATH,
+        verbose=True,
+    )
 
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
     parser = argparse.ArgumentParser(description="Train M5 meta-classifier")
-    parser.add_argument("--rows", type=int, default=None,
+    parser.add_argument("--rows",   type=int,  default=None,
                         help="Limit number of training rows (for quick tests)")
+    parser.add_argument("--resume", action="store_true",
+                        help="Resume from existing scores cache")
+    parser.add_argument("--train-only", action="store_true",
+                        help="Skip scoring; train from data/processed/train_with_scores.csv")
+    parser.add_argument("--fresh", action="store_true",
+                        help="Delete cached scores and re-score all rows (use after Wikipedia/M5 updates)")
     args = parser.parse_args()
+
+    if args.fresh and os.path.exists(SCORES_CACHE):
+        os.remove(SCORES_CACHE)
+        print(f"Removed old scores cache -> re-scoring with current Wikipedia retrieval")
+        args.resume = False
 
     # ── Load data ─────────────────────────────────────────────────────────────
     if not os.path.exists(TRAIN_PATH):
@@ -64,48 +85,121 @@ def main():
         print("  Run:  python src/data/preprocess.py  first.")
         sys.exit(1)
 
-    df = pd.read_csv(TRAIN_PATH)
-    if args.rows:
-        df = df.sample(n=min(args.rows, len(df)), random_state=42).reset_index(drop=True)
+    df = pd.read_csv(TRAIN_PATH, header=0)
+    df.columns = ["question", "answer", "label", "source"]
+    df = df[df["label"] != "label"].reset_index(drop=True)
+    df["label"] = df["label"].astype(int)
 
-    print(f"Training on {len(df)} rows  (label 1=hallucinated: {df['label'].sum()})")
+    if args.rows:
+        df = df.head(args.rows)
+        print(f"Using first {args.rows} rows")
+
+    print(f"Total rows     : {len(df)}")
+    print(f"Hallucinated(1): {df.label.sum()}")
+    print(f"Correct     (0): {(df.label == 0).sum()}")
+
+    def _print_feature_stats(frame: pd.DataFrame) -> None:
+        print("\nFeature means by label (higher score = more trustworthy):")
+        for col in ["m1_score", "m2_score", "m3_score", "m4_score"]:
+            ok = frame.loc[frame["label"] == 0, col].mean()
+            bad = frame.loc[frame["label"] == 1, col].mean()
+            print(f"  {col}: correct={ok:.3f}  hallucinated={bad:.3f}")
+
+    # ── Train-only mode (use pre-computed scores) ─────────────────────────────
+    if args.train_only:
+        if not os.path.exists(SCORES_CACHE):
+            print(f"[ERROR] Scores cache not found: {SCORES_CACHE}")
+            print("  Run without --train-only first to generate scores.")
+            sys.exit(1)
+        scored_df = pd.read_csv(SCORES_CACHE)
+        if "sample_mode" not in scored_df.columns:
+            print("[WARN] Cache missing sample_mode column (old scoring run).")
+            print("  Delete train_with_scores.csv and re-run without --train-only.")
+        elif scored_df["m1_score"].nunique() <= 1 and scored_df["m3_score"].nunique() <= 1:
+            print("[WARN] m1/m3 scores look constant in cache.")
+            print("  Delete the cache and re-run without --train-only.")
+        _print_feature_stats(scored_df)
+        _fit_m5(scored_df)
+        print("\nTraining complete!")
+        print(f"   Bundle -> {M5_BUNDLE_PATH}")
+        return
+
+    # ── Resume support ────────────────────────────────────────────────────────
+    results = []
+    if args.resume and os.path.exists(SCORES_CACHE):
+        cached = pd.read_csv(SCORES_CACHE)
+        done   = set(cached["question"].tolist())
+        df     = df[~df["question"].isin(done)].reset_index(drop=True)
+        results = cached.to_dict("records")
+        print(f"Resuming — {len(cached)} already scored, {len(df)} remaining")
+    else:
+        print("Starting fresh scoring...")
 
     # ── Extract features ──────────────────────────────────────────────────────
-    features = []
-    labels   = []
+    failed = 0
+    total  = len(df)
 
-    for idx, row in tqdm(df.iterrows(), total=len(df), desc="Extracting features"):
+    for idx, row in tqdm(df.iterrows(), total=total, desc="Scoring rows"):
+        question = str(row["question"])
+        answer   = str(row["answer"])
+        label    = int(row["label"])
+
         try:
-            feats = extract_features(str(row["question"]), str(row["answer"]))
-            features.append(feats)
-            labels.append(int(row["label"]))
+            out = extract_all(question, answer)
+            s1, s2, s3, s4 = out["features"]
+            results.append({
+                "question": question,
+                "answer":   answer,
+                "label":    label,
+                "source":   row.get("source", ""),
+                "m1_score": round(s1, 4),
+                "m2_score": round(s2, 4),
+                "m3_score": round(s3, 4),
+                "m4_score": round(s4, 4),
+                "sample_mode": out["sample_mode"],
+                "m1_m3_n": out["m1_m3_sample_count"],
+                "wiki_title": out["m2"].get("wiki_title", ""),
+                "wiki_relevance": out["m2"].get("wiki_relevance", 0.0),
+            })
         except Exception as e:
-            print(f"  [WARN] Row {idx} skipped: {e}")
-            continue
+            failed += 1
+            results.append({
+                "question": question,
+                "answer":   answer,
+                "label":    label,
+                "source":   row.get("source", ""),
+                "m1_score": 0.5,
+                "m2_score": 0.5,
+                "m3_score": 0.5,
+                "m4_score": 0.5,
+                "sample_mode": "error",
+                "m1_m3_n": 0,
+                "wiki_title": "",
+                "wiki_relevance": 0.0,
+            })
+            if failed <= 3:
+                print(f"\n  [WARN] Row {idx} failed: {e}")
 
-    X = np.array(features, dtype=np.float32)
-    y = np.array(labels,   dtype=np.float32)
+        # Save cache every 100 rows — so resume works
+        if len(results) % 100 == 0:
+            pd.DataFrame(results).to_csv(SCORES_CACHE, index=False)
 
-    print(f"\nFeature matrix: {X.shape}  |  Labels: {y.shape}")
-    print(f"  Hallucinated (1): {int(y.sum())}  |  Correct (0): {int((y == 0).sum())}")
+    # Final save
+    scored_df = pd.DataFrame(results)
+    scored_df.to_csv(SCORES_CACHE, index=False)
+    print(f"\nScores saved → {SCORES_CACHE}")
+    print(f"Failed rows  : {failed}/{total}")
+    print(scored_df[["m1_score","m2_score","m3_score","m4_score","label"]].describe())
+    _print_feature_stats(scored_df)
 
     # ── Train ─────────────────────────────────────────────────────────────────
-    print(f"\nTraining TrustClassifier for {M5_EPOCHS} epochs …")
-    model = train_model(
-        X_train    = X,
-        y_train    = y,
-        input_size = M5_INPUT_SIZE,
-        hidden1    = M5_HIDDEN_SIZE_1,
-        hidden2    = M5_HIDDEN_SIZE_2,
-        lr         = M5_LEARNING_RATE,
-        epochs     = M5_EPOCHS,
-        batch_size = M5_BATCH_SIZE,
-        save_path  = MODEL_SAVE_PATH,
-        verbose    = True,
-    )
+    _fit_m5(scored_df)
 
-    print("\nTraining complete.")
-    print(f"Checkpoint saved → {MODEL_SAVE_PATH}")
+    print("\nTraining complete!")
+    print(f"   Bundle -> {M5_BUNDLE_PATH}")
+    print(f"   Scaler -> {SCALER_SAVE_PATH}")
+    print("\nRestart Streamlit:")
+    print("   streamlit run app/streamlit_app.py")
 
 
 if __name__ == "__main__":

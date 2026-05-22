@@ -19,8 +19,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
 
 from config import (
-    MODEL_SAVE_PATH, SCALER_SAVE_PATH, TRUST_THRESHOLDS, TRUST_LABELS,
-    M5_INPUT_SIZE, M5_HIDDEN_SIZE_1, M5_HIDDEN_SIZE_2,
+    MODEL_SAVE_PATH, M5_BUNDLE_PATH, SCALER_SAVE_PATH, TRUST_THRESHOLDS, TRUST_LABELS,
 )
 import importlib
 import modules.m1_consistency
@@ -35,10 +34,7 @@ importlib.reload(modules.m3_uncertainty)
 importlib.reload(modules.m4_entailment)
 importlib.reload(modules.m5_classifier)
 
-from modules.m1_consistency import score as m1_score
-from modules.m2_grounding   import score as m2_score
-from modules.m3_uncertainty  import score as m3_score
-from modules.m4_entailment   import score as m4_score
+from modules.feature_extraction import extract_all
 from modules.m5_classifier   import (
     load_model, predict_trust, weighted_trust_score,
 )
@@ -53,9 +49,10 @@ _model_loaded = False
 def _get_model():
     global _model, _scaler, _model_loaded
     if not _model_loaded:
-        if os.path.exists(MODEL_SAVE_PATH):
+        load_path = M5_BUNDLE_PATH if os.path.exists(M5_BUNDLE_PATH) else MODEL_SAVE_PATH
+        if os.path.exists(load_path):
             try:
-                _model, _scaler = load_model(MODEL_SAVE_PATH, scaler_path=SCALER_SAVE_PATH)
+                _model, _scaler = load_model(load_path, scaler_path=SCALER_SAVE_PATH)
             except Exception as e:
                 print(f"[pipeline] Could not load model: {e}. Using fallback.")
                 _model = None
@@ -92,22 +89,22 @@ def run_pipeline(question: str, responses: list[str]) -> dict:
         scorer_used      : "neural" | "weighted_fallback"
         m1, m2, m3, m4   : individual module result dicts
     """
-    # ── Run modules ──────────────────────────────────────────────────────────
-    m1 = m1_score(question, responses)
-    m2 = m2_score(question, responses)
-    m3 = m3_score(question, responses)
-    m4 = m4_score(question, responses)
-
-    s1 = m1["m1_score"]
-    s2 = m2["m2_score"]
-    s3 = m3["m3_score"]
-    s4 = m4["m4_score"]
+    # ── Run modules (M1/M3: multi-sample; M2/M4: primary answer only) ───────
+    scored = extract_all(question, responses)
+    m1, m2, m3, m4 = scored["m1"], scored["m2"], scored["m3"], scored["m4"]
+    s1, s2, s3, s4 = scored["features"]
 
     # ── Fuse scores ───────────────────────────────────────────────────────────
     model, scaler = _get_model()
 
     if model is not None:
-        result = predict_trust(model, s1, s2, s3, s4, scaler=scaler)
+        result = predict_trust(
+            model, s1, s2, s3, s4,
+            scaler=scaler,
+            question=question,
+            answer=scored["primary_answer"],
+            meta=scored.get("meta"),
+        )
         trust  = result["trust_score"]
         hal_p  = result["hallucination_prob"]
         scorer = "neural"
@@ -125,4 +122,6 @@ def run_pipeline(question: str, responses: list[str]) -> dict:
         "m2": m2,
         "m3": m3,
         "m4": m4,
+        "sample_mode": scored["sample_mode"],
+        "m1_m3_sample_count": scored["m1_m3_sample_count"],
     }

@@ -31,12 +31,26 @@ def compute_pairwise_similarities(embeddings: np.ndarray) -> list[float]:
     return sims
 
 
-def compute_consistency(responses: list[str]) -> dict:
- 
+def _question_answer_coherence(question: str, answer: str) -> float:
+    """Single-response fallback: semantic alignment between Q and A."""
+    if not question or not answer:
+        return 0.5
+    model = get_model()
+    emb = model.encode([question, answer], normalize_embeddings=True)
+    return float(np.clip(np.dot(emb[0], emb[1]), 0.0, 1.0))
+
+
+def compute_consistency(responses: list[str], question: str = "") -> dict:
+
     if len(responses) < 2:
+        mean = (
+            _question_answer_coherence(question, responses[0])
+            if responses and question
+            else 0.5
+        )
         return {
-            "mean": 1.0,
-            "min": 1.0,
+            "mean": mean,
+            "min": mean,
             "std": 0.0,
             "pairs": [],
         }
@@ -77,7 +91,7 @@ def score(question: str, responses: list[str]) -> dict:
             "m1_verdict": "No responses",
         }
 
-    stats = compute_consistency(responses)
+    stats = compute_consistency(responses, question=question)
     mean = stats["mean"]
 
     if mean >= 0.85:

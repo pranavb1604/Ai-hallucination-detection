@@ -19,8 +19,9 @@ sys.path.insert(0, ROOT)
 # ── Config ────────────────────────────────────────────────────────────────────
 CSV_PATH        = "data/processed/train.csv"
 SCORES_CSV      = "data/processed/train_with_scores.csv"
-MODEL_SAVE_PATH = "models/trust_classifier.pth"
+M5_BUNDLE_PATH  = "models/m5_bundle.pkl"
 SCALER_PATH     = "models/scaler_m5.pkl"
+M5_BACKEND      = "auto"
 
 # Start with 500 to test, then set to None for all 8054
 MAX_ROWS = 500
@@ -49,9 +50,7 @@ print(df[["question", "answer", "label"]].head(3))
 # ── Score each row ────────────────────────────────────────────────────────────
 print("\nGenerating scores (this will take a while)...")
 
-from modules.m1_consistency import score as m1_score
-from modules.m2_grounding   import score as m2_score
-from modules.m4_entailment  import score as m4_score
+from modules.feature_extraction import extract_all
 
 results = []
 failed  = 0
@@ -63,23 +62,8 @@ for i, row in df.iterrows():
     label    = int(row["label"])
 
     try:
-        # M1 — pairwise consistency
-        m1 = m1_score(question, [answer, answer])  # ← question add karo
-        s1 = m1.get("m1_score", 0.5)
-
-        # M2 — grounding / evidence retrieval
-        m2 = m2_score(question, [answer])
-        s2 = m2.get("m2_score", 0.5)
-
-        # M3 — neutral placeholder (no M3 module)
-        s3 = 0.5
-
-        # M4 — entailment
-        m4 = m4_score(question, [answer])
-        s4 = m4.get("m4_score", 0.5)
-        if s4 == 0.0:
-            s4 = 0.5   # neutralize missing evidence
-
+        out = extract_all(question, answer)
+        s1, s2, s3, s4 = out["features"]
         results.append({
             "question": question,
             "answer":   answer,
@@ -89,6 +73,10 @@ for i, row in df.iterrows():
             "m2_score": round(s2, 4),
             "m3_score": round(s3, 4),
             "m4_score": round(s4, 4),
+            "sample_mode": out["sample_mode"],
+            "m1_m3_n": out["m1_m3_sample_count"],
+            "wiki_title": out["m2"].get("wiki_title", ""),
+            "wiki_relevance": out["m2"].get("wiki_relevance", 0.0),
         })
 
     except Exception as e:
@@ -129,11 +117,17 @@ y = scored_df["label"].values.astype("float32")
 print(f"Feature matrix : {X.shape}")
 print(f"Hallucinated (1): {int(y.sum())} | Correct (0): {int((1-y).sum())}")
 
+from config import M5_BACKEND
+
 model, scaler = train_model(
     X, y,
-    save_path=MODEL_SAVE_PATH,
+    questions=scored_df["question"].tolist(),
+    answers=scored_df["answer"].tolist(),
+    sample_modes=scored_df["sample_mode"].tolist() if "sample_mode" in scored_df.columns else None,
+    backend=M5_BACKEND,
+    save_path=M5_BUNDLE_PATH,
     scaler_path=SCALER_PATH,
-    epochs=500,
+    epochs=100,
     verbose=True,
 )
 

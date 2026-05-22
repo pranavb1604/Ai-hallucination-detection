@@ -12,6 +12,7 @@ Approach:    Since we treat the LLM as a black box (no logprobs access),
              3. Normalising to [0, 1] where 1 = certain, 0 = uncertain.
 """
 
+import re
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
@@ -26,6 +27,22 @@ def get_model() -> SentenceTransformer:
     if _model is None:
         _model = SentenceTransformer("all-MiniLM-L6-v2")
     return _model
+
+
+def _split_sentences(text: str) -> list[str]:
+    parts = re.split(r'(?<=[.!?])\s+', text.strip())
+    return [s.strip() for s in parts if len(s.strip()) >= 10]
+
+
+def _intra_answer_certainty(answer: str) -> float:
+    """Single-response fallback: certainty from sentence embedding spread."""
+    sentences = _split_sentences(answer)
+    if len(sentences) < 2:
+        return 0.5
+    model = get_model()
+    embeddings = model.encode(sentences, normalize_embeddings=True)
+    variance = _semantic_variance(embeddings)
+    return float(np.clip(1.0 - min(variance / _MAX_EXPECTED_VARIANCE, 1.0), 0.0, 1.0))
 
 
 def _semantic_variance(embeddings: np.ndarray) -> float:
@@ -55,11 +72,11 @@ def score(question: str, responses: list[str]) -> dict:
         }
 
     if len(responses) == 1:
-        # Single response — cannot estimate variance; assume moderate certainty
+        certainty = _intra_answer_certainty(responses[0])
         return {
-            "m3_score": 0.5,
+            "m3_score": round(certainty, 4),
             "m3_variance": 0.0,
-            "m3_verdict": "Single response — uncertainty unknown",
+            "m3_verdict": "Single response — intra-answer certainty estimate",
         }
 
     model = get_model()

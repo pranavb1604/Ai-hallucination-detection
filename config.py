@@ -38,6 +38,7 @@ RANDOM_SEED              = 42
 
 M1_MODEL_NAME        = "all-MiniLM-L6-v2"   # sentence transformer model
 M1_NUM_SAMPLES       = 5                     # how many LLM responses to compare
+M1_M3_MIN_SAMPLES    = 3                     # Ollama / pseudo-sample count for M1 & M3
 M1_SIMILARITY_THRESHOLD = 0.7               # below this = inconsistent
 
 # ─────────────────────────────────────────────
@@ -62,15 +63,17 @@ M4_MIN_CLAIM_LENGTH  = 10                    # ignore sentences shorter than thi
 # MODULE 5 — TRUST CLASSIFIER
 # ─────────────────────────────────────────────
 
-M5_INPUT_SIZE        = 10                    # M1, M2, M3, M4 scores
+M5_INPUT_SIZE        = 20                    # engineered feature dim (m5_features.py)
 M5_HIDDEN_SIZE_1     = 64
 M5_HIDDEN_SIZE_2     = 32
 M5_OUTPUT_SIZE       = 1
 M5_LEARNING_RATE     = 0.001
 M5_EPOCHS            = 100
 M5_BATCH_SIZE        = 32
+M5_BACKEND           = "auto"                # auto | gb | nn  (auto picks best val accuracy)
 
 MODEL_SAVE_PATH      = os.path.join(BASE_DIR, "models", "trust_classifier.pth")
+M5_BUNDLE_PATH       = os.path.join(BASE_DIR, "models", "m5_bundle.pkl")
 SCALER_SAVE_PATH     = os.path.join(BASE_DIR, "models", "scaler_m5.pkl")
 
 # ─────────────────────────────────────────────

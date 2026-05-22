@@ -25,32 +25,16 @@ from tqdm import tqdm
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
 
-from config import (
-    TEST_PATH, MODEL_SAVE_PATH, SCORES_DIR,
-    M5_INPUT_SIZE, M5_HIDDEN_SIZE_1, M5_HIDDEN_SIZE_2,
-)
-from modules.m1_consistency import score as m1_score
-from modules.m2_grounding   import score as m2_score
-from modules.m3_uncertainty  import score as m3_score
-from modules.m4_entailment   import score as m4_score
-from modules.m5_classifier   import (
-    load_model, predict_trust, weighted_trust_score, build_features
+from config import TEST_PATH, MODEL_SAVE_PATH, M5_BUNDLE_PATH, SCORES_DIR
+from modules.feature_extraction import extract_features
+from modules.m5_classifier import (
+    load_model, predict_batch, weighted_trust_score,
 )
 
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score,
     f1_score, roc_auc_score, confusion_matrix,
 )
-
-
-# ─── Feature extraction (same as train.py) ────────────────────────────────────
-
-def extract_features(question: str, answer: str) -> list[float]:
-    m1 = m1_score(question, [answer])["m1_score"]
-    m2 = m2_score(question, [answer])["m2_score"]
-    m3 = m3_score(question, [answer])["m3_score"]
-    m4 = m4_score(question, [answer])["m4_score"]
-    return [m1, m2, m3, m4]
 
 
 # ─── Metrics helper ───────────────────────────────────────────────────────────
@@ -166,12 +150,14 @@ def main():
     print(f"Evaluating on {len(df)} test rows …")
 
     # ── Extract features ──────────────────────────────────────────────────────
-    features, labels = [], []
+    features, labels, questions, answers = [], [], [], []
     for idx, row in tqdm(df.iterrows(), total=len(df), desc="Extracting features"):
         try:
             feats = extract_features(str(row["question"]), str(row["answer"]))
             features.append(feats)
             labels.append(int(row["label"]))
+            questions.append(str(row["question"]))
+            answers.append(str(row["answer"]))
         except Exception as e:
             print(f"  [WARN] Row {idx} skipped: {e}")
 
@@ -180,35 +166,26 @@ def main():
 
     # ── Load model ────────────────────────────────────────────────────────────
     from config import SCALER_SAVE_PATH
-    use_nn = os.path.exists(MODEL_SAVE_PATH)
-    if use_nn:
-        print(f"\nLoading trained model from {MODEL_SAVE_PATH} …")
-        model, scaler = load_model(MODEL_SAVE_PATH, scaler_path=SCALER_SAVE_PATH)
+    load_path = M5_BUNDLE_PATH if os.path.exists(M5_BUNDLE_PATH) else MODEL_SAVE_PATH
+    use_model = os.path.exists(load_path)
+    if use_model:
+        print(f"\nLoading trained model from {load_path} …")
+        bundle, _ = load_model(load_path)
     else:
         print("\n[WARN] No trained model found — using weighted fallback scorer.")
-        model = None
-        scaler = None
+        bundle = None
 
     # ── Predict ───────────────────────────────────────────────────────────────
-    if use_nn:
-        import torch
-        # 1. Feature Engineering (4 -> 10 features)
-        X_eng = np.array([build_features(r[0], r[1], r[2], r[3]) for r in X], dtype=np.float32)
-        # 2. Scaling
-        if scaler is not None:
-            X_eng = scaler.transform(X_eng).astype(np.float32)
-        
-        X_t = torch.tensor(X_eng, dtype=torch.float32)
-        with torch.no_grad():
-            hallucination_probs = model(X_t).squeeze().numpy()
+    if bundle is not None:
+        hallucination_probs = predict_batch(bundle, X, questions=questions, answers=answers)
         trust_probs = 1.0 - hallucination_probs
+        threshold = bundle.get("threshold", 0.5)
     else:
         trust_probs = np.array([weighted_trust_score(*row) for row in X])
         hallucination_probs = 1.0 - trust_probs
+        threshold = 0.5
 
-    # Threshold: trust < 0.5 → predicted hallucinated (label=1)
-    threshold = 0.5
-    y_pred = (trust_probs < threshold).astype(int)
+    y_pred = (hallucination_probs >= threshold).astype(int)
 
     # ── Metrics ───────────────────────────────────────────────────────────────
     metrics = compute_metrics(y, y_pred, hallucination_probs)
@@ -245,9 +222,9 @@ def main():
     print(f"\nResults saved → {results_path}")
 
     # ── SHAP ──────────────────────────────────────────────────────────────────
-    if use_nn:
+    if use_model and bundle and bundle.get("backend") == "nn":
         print("\nGenerating SHAP explanations …")
-        run_shap(model, X, SCORES_DIR)
+        run_shap(bundle["model"], X, SCORES_DIR)
 
     print("\nEvaluation complete.")
 

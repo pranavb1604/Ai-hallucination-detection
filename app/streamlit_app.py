@@ -14,7 +14,8 @@ sys.path.insert(0, BASE_DIR)
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 from pipeline import run_pipeline
-from config import MODEL_SAVE_PATH, TRUST_THRESHOLDS
+from config import MODEL_SAVE_PATH, M5_BUNDLE_PATH, TRUST_THRESHOLDS, M1_M3_MIN_SAMPLES
+from modules.feature_extraction import extract_all
 
 # ── Ollama config ─────────────────────────────────────────────────────────────
 OLLAMA_URL   = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
@@ -202,7 +203,10 @@ with st.sidebar:
         st.caption("Run `ollama serve` in a terminal, then refresh.")
         selected_model = OLLAMA_MODEL
 
-    num_samples = st.slider("Samples to generate (M1)", 3, 7, 3)
+    num_samples = st.slider(
+        "Samples to generate (M1/M3)", 2, 7, M1_M3_MIN_SAMPLES,
+        help="Ollama generates N answers; M1/M3 compare them. Matches training pseudo-sample count.",
+    )
     temperature  = st.slider("Temperature", 0.1, 1.0, 0.7, 0.05)
 
     st.divider()
@@ -365,53 +369,38 @@ if run:
         st.warning("Please generate or paste at least one LLM response.")
         st.stop()
 
-    # ── Run M1–M4 ─────────────────────────────────────────────────────────────
-    progress = st.progress(0, text="Running M1 — Semantic Consistency …")
-
-    with st.spinner("Running M1 — Semantic Consistency …"):
-        import importlib
-        import modules.m1_consistency
-        importlib.reload(modules.m1_consistency)
-        from modules.m1_consistency import score as _m1
-        m1 = _m1(question, responses)
-    progress.progress(25, text="Running M2 — Retrieval Grounding …")
-
-    with st.spinner("Running M2 — Retrieval Grounding …"):
-        import importlib
-        import modules.m2_grounding
-        importlib.reload(modules.m2_grounding)
-        from modules.m2_grounding import score as _m2
-        m2 = _m2(question, responses)
-    progress.progress(50, text="Running M3 — Uncertainty Estimation …")
-
-    with st.spinner("Running M3 — Uncertainty Estimation …"):
-        import importlib
-        import modules.m3_uncertainty
-        importlib.reload(modules.m3_uncertainty)
-        from modules.m3_uncertainty import score as _m3
-        m3 = _m3(question, responses)
-    progress.progress(75, text="Running M4 — NLI Entailment …")
-
-    with st.spinner("Running M4 — NLI Entailment …"):
-        import importlib
-        import modules.m4_entailment
-        importlib.reload(modules.m4_entailment)
-        from modules.m4_entailment import score as _m4
-        m4 = _m4(question, responses)
+    # ── Run M1–M4 (same rules as train.py / pipeline.py) ─────────────────────
+    progress = st.progress(0, text="Running M1–M4 …")
+    with st.spinner("Running M1–M4 …"):
+        scored = extract_all(question, responses, min_samples=num_samples)
+    m1, m2, m3, m4 = scored["m1"], scored["m2"], scored["m3"], scored["m4"]
+    s1, s2, s3, s4 = scored["features"]
     progress.progress(90, text="Fusing scores via M5 …")
+
+    mode_labels = {
+        "live_multi": f"M1/M3: {scored['m1_m3_sample_count']} live Ollama samples",
+        "pseudo_multi": f"M1/M3: {scored['m1_m3_sample_count']} sentence splits (train-aligned)",
+        "short_multi": f"M1/M3: short answer + question/entity anchors (1-word dataset mode)",
+        "single_fallback": "M1/M3: minimal fallback (rely on M2/M4)",
+    }
+    st.caption(mode_labels.get(scored["sample_mode"], scored["sample_mode"]))
 
     # ── Fuse via M5 ───────────────────────────────────────────────────────────
     from modules.m5_classifier import load_model, predict_trust, weighted_trust_score
-    from config import M5_INPUT_SIZE, M5_HIDDEN_SIZE_1, M5_HIDDEN_SIZE_2, SCALER_SAVE_PATH
-
-    s1, s2, s3, s4 = (m1["m1_score"], m2["m2_score"],
-                      m3["m3_score"], m4["m4_score"])
+    from config import SCALER_SAVE_PATH
      
 
-    model_exists = os.path.exists(MODEL_SAVE_PATH)
+    load_path = M5_BUNDLE_PATH if os.path.exists(M5_BUNDLE_PATH) else MODEL_SAVE_PATH
+    model_exists = os.path.exists(load_path)
     if model_exists:
-        nn_model, scaler = load_model(MODEL_SAVE_PATH, scaler_path=SCALER_SAVE_PATH)
-        result = predict_trust(nn_model, s1, s2, s3, s4, scaler=scaler)  # ← add scaler=scaler
+        bundle, scaler = load_model(load_path, scaler_path=SCALER_SAVE_PATH)
+        result = predict_trust(
+            bundle, s1, s2, s3, s4,
+            scaler=scaler,
+            question=question,
+            answer=scored["primary_answer"],
+            meta=scored.get("meta"),
+        )
         trust_score = result["trust_score"]
         scorer_used = "Neural M5 classifier"
     else:
@@ -509,10 +498,28 @@ if run:
             else:
                 st.caption(m4.get("m4_verdict", "No claims extracted."))
 
-        # Evidence
+        # Evidence (multi-query Wikipedia retrieval)
         ev_text = m2["context"] or m4.get("m4_evidence_used", "")
         ev_src  = m2.get("source", "Wikipedia")
+        wiki_title = m2.get("wiki_title", "")
+        wiki_rel = m2.get("wiki_relevance", 0.0)
         st.subheader("Supporting evidence (M2 / M4)")
+        if wiki_title:
+            st.caption(
+                f"Article: **{wiki_title}** · match score: **{wiki_rel:.2f}** "
+                f"(multi-query retrieval)"
+            )
+        if ev_text and m2.get("context"):
+            try:
+                from modules.wiki_qa import extract_answer
+                wiki_ans = extract_answer(question, m2["context"])
+                if wiki_ans.get("answerable"):
+                    st.info(
+                        f"Wikipedia extractive answer: **{wiki_ans['answer']}** "
+                        f"(confidence {wiki_ans['confidence']:.2f})"
+                    )
+            except Exception:
+                pass
         if ev_text:
             st.markdown(
                 f"""<div class="evidence-box">
