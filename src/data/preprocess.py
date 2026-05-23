@@ -167,7 +167,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 
 # Add project root to path
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, BASE_DIR)
 
 from config import (
@@ -197,7 +197,7 @@ def process_halueval(path: str) -> pd.DataFrame:
         else:
             continue
 
-        if q and ans and ans != "nan":
+        if q and ans and ans != "nan" and len(ans) >= 15:  # Filter short answers
             records.append({
                 "question": q,
                 "answer": ans,
@@ -245,7 +245,7 @@ def process_truthfulqa(path: str) -> pd.DataFrame:
 
         for choice, lbl in zip(choices, labels):
             ans = str(choice).strip()
-            if ans and ans != "nan":
+            if ans and ans != "nan" and len(ans) >= 15:  # Filter short answers
                 # TruthfulQA label: 1 = correct → we invert to label 1 = hallucinated
                 records.append({
                     "question": q,
@@ -288,8 +288,8 @@ def main():
     train_df.to_csv(TRAIN_PATH, index=False)
     test_df.to_csv(TEST_PATH,  index=False)
 
-    print(f"\nTrain: {len(train_df)} rows → {TRAIN_PATH}")
-    print(f"Test:  {len(test_df)}  rows → {TEST_PATH}")
+    print(f"\nTrain: {len(train_df)} rows -> {TRAIN_PATH}")
+    print(f"Test:  {len(test_df)}  rows -> {TEST_PATH}")
     print("Preprocessing complete!")
 
 if __name__ == "__main__":

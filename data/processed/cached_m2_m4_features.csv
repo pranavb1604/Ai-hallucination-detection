@@ -1,0 +1,271 @@
+idx,question,label,m2_score,m4_score,m4_mean_score,m4_min_score,m4_n_unsupported,m4_avg_nli,m4_avg_semantic,m4_avg_lexical
+0,Who did the current manager of Milan replace as caretaker during the 2010–11 A.S. Roma season?,0,0.5972,0.5254,0.5254,0.5254,0.0,0.7497,0.6234,0.08
+1,"Charles Francis ""Frank"" Keeney Jr. was a union organizer during a war between which two factions ?",0,0.3282,0.4717,0.4717,0.4717,0.0,0.7499,0.4967,0.093
+2,"What Dr. Who episode was based on a short story written by Moffat entitled ""'What I Did on My Christmas Holidays' By Sally Sparrow"" included a Weeping Angel?",1,0.3067,0.3855,0.3855,0.3855,0.0,0.7499,0.3316,0.0455
+3,"Ode to Billy Joe is a 1976 film with a screenplay by Herman Raucher, inspired by the 1967 hit song by Bobbie Gentry, which 1967 song written and recorded by Bobbie Gentry, a singer-songwriter from Chickasaw County, Mississippi?",0,0.0,0.2279,0.2279,0.2279,1.0,0.7498,0.0066,0.0
+4,Havoc and Prodigy appeared in Da Hip Hop Witch with what Detroit rapper?,1,0.0,0.3568,0.3568,0.3568,0.0,0.6339,0.2592,0.2
+5,The city where Intesa Sanpaolo is based is the capital city of what region in Italy?,1,0.0,0.5162,0.5162,0.5162,0.0,0.7482,0.5441,0.1875
+6,"Mark Perakh who helped write The Panda's Thumb, was a professor at what university?",0,0.6811,0.5901,0.5901,0.5901,0.0,0.7499,0.7038,0.1935
+7,The Boy Who Cried Bitch is a 1991 American independent drama film directed by Juan Jose Campanella and stars include which American actor?,1,0.3939,0.4377,0.4377,0.4377,0.0,0.7493,0.3821,0.1639
+8,Are both Simon Wincer and Patrice Leconte film directors?,1,0.0,0.1681,0.1681,0.1681,1.0,0.0002,0.3179,0.1
+9,"The Duchess of Cornwall uses her title instead of what other title, the title held by the first wife of Prince Charles?",0,0.4357,0.202,0.202,0.202,1.0,0.0011,0.4145,0.0606
+10,"Mark Frith has been a writer and editor for magazines such as ""Smash Hits"", ""Time Out"" and which other magazine?",1,0.6386,0.6401,0.6401,0.6401,0.0,0.9811,0.7031,0.1176
+11,"Innovative Life: The Anthology 1984-1989, is a compilation album released in 2008 by who, which American rapper, singer-songwriter, record producer and DJ?",1,0.0,0.2416,0.2416,0.2416,1.0,0.7345,0.0,0.0851
+12,What event that Svetlana Radzivil participated in is organized by the Asian Athletics Association?,1,0.4545,0.4589,0.4589,0.4589,0.0,0.7493,0.4782,0.0755
+13,"Which baseball player and manager was born in Ellisville, Mississippi, home of 4448 people?",0,0.0,0.2669,0.2669,0.2669,1.0,0.7497,0.0934,0.0
+14,"What is the name of the famous dancer, taught by Richard Thomas, that formed her own dance company in 1966?",1,0.0574,0.3184,0.3184,0.3184,1.0,0.9753,0.0574,0.0
+15,"large, primarily residential, public research university in Kent, Ohio, United States has an online folk music stream that is hosted by an American radio personality who is also a representative of Philadelphia's folk music scene, what was he called by ""The Philadelphia inquirer""?",0,0.0,0.3009,0.3009,0.3009,1.0,0.75,0.1402,0.0513
+16,"What man, also known as mi Sde-Or, created a military self-defense system developed for the Israel Defense Forces?",0,0.1754,0.3199,0.3199,0.3199,1.0,0.7481,0.2123,0.0
+17,"For what ride is Pepper's ghost, an illusion technique, used when the Blue Fairy disappears, leaving a pile of fiber-optic fairy dust on the floor?",1,0.4466,0.4514,0.4514,0.4514,0.0,0.744,0.484,0.0417
+18,"What region is the division which was one of the original 75 divisions to be contested at the first federal election, in which James Tully unsuccessfully contested for a federal seat in 1919, in?",0,0.0,0.3294,0.3294,0.3294,1.0,0.7221,0.2304,0.0364
+19,"Which is a heavy metal band, Gary Braver or System of a Down?",0,0.0,0.3169,0.3169,0.3169,1.0,0.7488,0.1803,0.0444
+20,Bentfield Bury is near which historic market town?,0,0.7457,0.6374,0.6374,0.6374,0.0,0.7504,0.7647,0.2727
+21,The Rookie stars which actress of Australian heritage?,1,0.4453,0.2462,0.2462,0.2462,1.0,0.0001,0.4789,0.1224
+22,"Rhett is the official costumed mascot of the Boston University (BU) and the Boston University Academy (BUA) Terriers, the often snarling, bi-pedal black and white Boston Terrier was later named after the male lead in Margaret Mitchell's ""Gone with the Wind"", because ""No one loves Scarlett more than Rhett"" referencing Rhett Butler's affection for which fictional character and the main protagonist in Margaret Mitchell's 1936 novel ""Gone with the Wind"" and in the later film of the same name?",0,0.6164,0.51,0.51,0.51,0.0,0.7496,0.5695,0.1154
+23,Shedd Park Fieldhouse was named for the second president and chairman of what board?,0,0.6289,0.579,0.579,0.579,0.0,0.7499,0.6967,0.1622
+24,"If you use the lyrics from Tom Lehrer and the tune of Major-General's Song The Pirates of Penzance, what list will you be able to recite?",0,0.0,0.1456,0.1456,0.1456,1.0,0.4414,0.0035,0.0465
+25,What can be found in the Northwest Montana Wetland Management District?,0,0.6534,0.6095,0.6095,0.6095,0.0,0.749,0.7673,0.1579
+26,Which South Korean mixed martial artist has been defeated by George Roop?,1,0.2447,0.1226,0.1226,0.1226,1.0,0.0105,0.2447,0.0476
+27,The scientist who first reported Volvox was commonly known by what title name?,0,0.0,0.3376,0.3376,0.3376,1.0,0.75,0.2501,0.0
+28,What Minnesota capital city is also the hometown of boxer Jimmy Hegerle?,1,0.0,0.4238,0.4238,0.4238,0.0,0.7491,0.4183,0.0435
+29,Evison Matafale was the founder and leader of a band whose genre was effectively named by a 1968 single by what band?,0,0.0,0.2573,0.2573,0.2573,1.0,0.7498,0.0718,0.0
+30,Philip N. Howard took up the professorship in Internet Studies at what University?,0,0.6747,0.5744,0.5744,0.5744,0.0,0.7499,0.7165,0.1081
+31,"Which author is known for her ""Anne of Green Gables"" books: Lucy Maud Montgomery or Jan Karon?",0,0.5028,0.485,0.485,0.485,0.0,0.7501,0.5203,0.1034
+32,Which Canadian-Spanish-American 2015 psychological thriller stars a British actress who was born in 1990?,1,0.0,0.1373,0.1373,0.1373,1.0,0.0001,0.2825,0.0408
+33,"Four Darks in Red is shown in Mark Rothko's mural projects for what skyskraper, that is located at 375 Park Avenue in Manhattan?",0,0.0321,0.2873,0.2873,0.2873,1.0,0.758,0.133,0.0
+34,"What was the nickname of the employee of an American company that manufactures footwear, sports, and casual apparel given by Bill Parcells because of his fondess for technology?",1,0.0,0.1636,0.1636,0.1636,1.0,0.0018,0.323,0.0727
+35,What is the birthdate of this former American football quarterback who played for the Dallas Cowboys and who was protected by his offensive tackle Mark Tuinei?,0,0.0,0.3083,0.3083,0.3083,1.0,0.7402,0.1617,0.0541
+36,"Jack Milsom (22 February 1907 – 1977) was an English footballer who played in The Football League for which professional football club, based in the town of Rochdale, Greater Manchester, England, that competes in League One?",0,0.4509,0.427,0.427,0.427,0.0,0.7501,0.4488,0.0
+37,"Who was born in a country further east, Richard Dutcher or Rosa von Praunheim?",0,0.0,0.3637,0.3637,0.3637,0.0,0.7492,0.3087,0.0
+38,Which gulf touches both Anna Maria Island and Anna Maria the city?,1,0.0,0.4077,0.4077,0.4077,0.0,0.5761,0.469,0.0952
+39,Who was the two time Walter Camp Coach of the Year winner who led the 2000 Oklahoma Sooners to an Orange Bowl victory?,1,0.5914,0.3181,0.3181,0.3181,1.0,0.0129,0.6427,0.1
+40,For what NBC sketch comedy is the creator of 30 Rock best known?,1,0.5941,0.5396,0.5396,0.5396,0.0,0.7488,0.587,0.2034
+41,What was the group behind the album Hell: The Sequel formed?,1,0.0,0.5031,0.5031,0.5031,0.0,0.749,0.5309,0.1579
+42,"In which city do maritime pilots operating along the Hudson River and Long Island Sound, one of the wealthiest being Joseph Henderson, function?",1,0.0,0.3063,0.3063,0.3063,1.0,0.7486,0.1816,0.0
+43,"Going to Meet the Man covers many topics, including these relations, which culminated in the Civil Rights Act of 1964?",0,0.1992,0.3192,0.3192,0.3192,1.0,0.7493,0.2099,0.0
+44,"when was the American rapper, actor, television host,  that featured in  Up in Smoke Tourborn",1,0.2981,0.5427,0.5427,0.5427,0.0,0.9994,0.4575,0.1481
+45,What two states does the Androscoggin River and Akers pond touch?,0,0.0,0.5822,0.5822,0.5822,0.0,0.9243,0.5963,0.1463
+46,Were the bands Too Much Joy and The Jesus and Mary Chain formed in the same country?,1,0.0,0.4606,0.4606,0.4606,0.0,0.75,0.4823,0.0741
+47,"Who was first to win a Grand Slam doubles championship, Heather Watson or Édouard Roger-Vasselin?",1,0.7418,0.6869,0.6869,0.6869,0.0,0.9958,0.7633,0.1786
+48,"Which composer was Hungarian, Béla Bartók or Johann Christoph Pepusch?",0,0.5804,0.5314,0.5314,0.5314,0.0,0.7498,0.5972,0.1509
+49,"A Novel written by who is an opera based on in four acts by Jules Massenet to a French libretto by Édouard Blau, Paul Milliet and Georges Hartmann, that is a mainstay of the repertory during its history have included the following works which have each been performed more than 1,000 times by the company?",0,0.5788,0.5827,0.5827,0.5827,0.0,0.75,0.7094,0.1538
+50,"The actress that rose to prominence after appearing in Robin Thicke's ""Blurred Lines"" video co-stars with Zac Efron in a 2015 film directed by who?",1,0.2578,0.1323,0.1323,0.1323,1.0,0.0028,0.2578,0.0645
+51,"When was the English actress, writer, and comedian born who was a star in Girls on Top and in French and Saunders?",0,0.0569,0.2672,0.2672,0.2672,1.0,0.5555,0.2235,0.0
+52,Titus is the soundtrack to the film that starred which actors?,0,0.3928,0.4932,0.4932,0.4932,0.0,0.7463,0.533,0.1176
+53,"Spaceballs, a 1987 American film, starred which actor that was best known for his role in ""Eight is Enough""?",0,0.4271,0.4739,0.4739,0.4739,0.0,0.75,0.5069,0.0833
+54,Barrie Ciliberti is a professor at a univeristy located in what Maryland county?,0,0.577,0.6488,0.6488,0.6488,0.0,0.7498,0.8072,0.2424
+55,Where was the video game developer who developed TimeShift headquartered?,0,0.6598,0.7191,0.7191,0.7191,0.0,0.9991,0.7732,0.2857
+56,"Pet Circle, founded in Alexandria, New South Wales, is located near what city's business district?",1,0.1952,0.1085,0.1085,0.1085,1.0,0.0,0.2189,0.04
+57,"The Battle of Gully Hole Creek was a battle that took place on July 18, 1742 (new style) between Spanish and British forces in the Province of Georgia,was one of the Southern colonies in British America, and was the last of the thirteen original American colonies established by Great Britain in what later became which country?",1,0.3022,0.4405,0.4405,0.3939,0.0,0.74665,0.387,0.16965
+58,"Which 2004 American comedy fantasy film stars both Jennifer Garner and the star of ""The Kids Are Alright""?",1,0.5974,0.5188,0.5188,0.5188,0.0,0.7482,0.5923,0.1111
+59,What coal-powered thermal power station is in a town about 243 km north of Sydney.,1,0.193,0.3773,0.3773,0.3773,0.0,0.7496,0.2758,0.1132
+60,"Ren and Stimpy, created by John Kricfalusi, are the title characters in which American-Canadian animated television series, for Nickelodeon?",0,0.1265,0.2876,0.2876,0.2876,1.0,0.7497,0.1394,0.0
+61,Olathe North High School is in the school district in what area?,0,0.6851,0.7378,0.7378,0.7378,0.0,0.9988,0.8255,0.2667
+62,"Who released the singles ""I Hope You Dance"" and ""Call Me Crazy""?",1,0.5329,0.2885,0.2885,0.2885,1.0,0.0005,0.5382,0.1846
+63,What Mississippi city is the Tie Plant located in?,1,0.0,0.3413,0.3413,0.3413,1.0,0.7497,0.2587,0.0
+64,"What was the franchise, in which Anton Šťastný played 9 seasons, renamed after moving in 1995?",1,0.7192,0.679,0.679,0.679,0.0,0.9993,0.7368,0.1905
+65,"Which director is American, Tom Forman or Arturo Ripstein?",1,0.0,0.3165,0.3165,0.3165,1.0,0.7465,0.2057,0.0
+66,Are Second Skin and The Messenger both documentaries?,1,0.0,0.4055,0.4055,0.4055,0.0,0.7482,0.3511,0.0923
+67,With which racing team that currently competes in Asian Le Mans Series does Jota Sport have a partnership as of 2017?,1,0.1305,0.2835,0.2835,0.2835,1.0,0.7491,0.1305,0.0
+68,Which film director was born in 1908 - Tex Avery or John G. Blystone?,0,0.0,0.6081,0.6081,0.6081,0.0,0.7733,0.7274,0.1951
+69,"What author has contributed to such works as ""New Statesmen"", ""The Nation"", and ""The Atlantic"", among others, while also being being associated with Dysteleology?",1,0.0,0.0,0.0,0.0,1.0,0.0002,0.0,0.0
+70,"In between Against the Current and Troy Baker who has voiced Joel in ""The Last of Us""?",0,0.3537,0.2399,0.2399,0.2399,1.0,0.0448,0.462,0.0741
+71,"What is a city that is set aside from the territory of any county or counties with exceptions , including a city built along the western bank of the Mississippi River, on the border with Illinois ?",0,0.0,0.0429,0.0429,0.0429,1.0,0.0003,0.0953,0.0
+72,"when is the American former Major League Baseball (MLB) outfielder and manager who also replaced Manager Cal Ripken, Sr when fired born",1,0.5049,0.2533,0.2533,0.2533,1.0,0.0008,0.5058,0.1017
+73,"Who was also an airline pilot, Billy Gibbons or Bruce Dickinson?",1,0.2531,0.3408,0.3408,0.3408,1.0,0.7447,0.2324,0.0513
+74,What was the famous novel mentioned in the above paragraphs?,1,0.0,0.0718,0.0718,0.0718,1.0,0.0386,0.1337,0.0
+75,What is the title of this South Korean disaster film written and directed by Kim Sung-su that Park Min-ha appeared?,1,0.4589,0.4355,0.4355,0.4355,0.0,0.7468,0.4534,0.0299
+76,"How many miles long is this major railway link between London and Edinburgh, in which The Swinton-Doncaster line is a short railway between Swinton Junction and Doncaster South Yorkshire?",1,0.118,0.3493,0.3493,0.3493,1.0,0.7498,0.2765,0.0
+77,"Which author is a professor, Maxine Hong Kingston or Isabel Allende?",1,0.0,0.4231,0.4231,0.4231,0.0,0.7387,0.4192,0.0513
+78,Marie Elizabeth de LaFite joined the service of the wife of which King of Great Britain?,0,0.6167,0.6093,0.6093,0.6093,0.0,0.7483,0.7738,0.1463
+79,What professional football club Ronnie Simpson was involved in was founded in 1887?,0,0.5995,0.6265,0.6265,0.6265,0.0,0.7501,0.781,0.2
+80,Rhodochiton and Platystemon are both genuses of what kind of life form?,0,0.5973,0.5996,0.5996,0.5996,0.0,0.7499,0.7807,0.093
+81,The Casey Jr. is a water play area across from which aerial carousel-style ride located in Fantasyland at six Disney parks around the world?,0,0.0,0.3335,0.3335,0.3335,1.0,0.7479,0.2425,0.0
+82,When was the Canadian professional ice hockey left winger who was sent to Buffalo Sabres born,1,0.1877,0.3416,0.3416,0.3416,1.0,0.7493,0.2248,0.0625
+83,"Kiawah Island, South Carolina was mentioned in ""Porgy and Bess,"" composed by the man best known for which other 1924 orchestral composition?",0,0.6157,0.614,0.614,0.614,0.0,0.75,0.7719,0.1667
+84,"Who was born first, Muhammad Iqbal or Ali Qushji?",1,0.0,0.4109,0.4109,0.4109,0.0,0.7496,0.4134,0.0
+85,Which star of The Bad Batch is born in 1992?,0,0.4163,0.4274,0.4274,0.4274,0.0,0.8675,0.3197,0.093
+86,Did both the Selective Draft Law Cases and Atkins v. Virginia find that the Constitution had been violated?,1,0.3279,0.3686,0.3686,0.3589,0.0,0.74815,0.2964,0.04305
+87,"What is the name of this airline based in Cincinnati, Ohio, in which DeKalb-Peachtree Airport has airline service to Cincinnati?",0,0.5696,0.3118,0.3118,0.3118,1.0,0.0381,0.6157,0.093
+88,Are both Weifang and Nyingchi prefecture-level cities?,1,0.4185,0.2091,0.2091,0.2091,1.0,0.0057,0.4126,0.087
+89,"Pineville, a suburban town in the southernmost portion of Mecklenburg County, situated in the Waxhaws, a geographical area on the border of what 2 states?",0,0.5615,0.6037,0.6037,0.6037,0.0,0.7498,0.6967,0.2609
+90,Who won the 2016 Russian national silver medal with another Russian ice dancer born 29 April 1995?,0,0.5795,0.2821,0.2821,0.2821,1.0,0.0006,0.5556,0.1277
+91,Except George Lucas's space opera film in which film a prominent speeder bike chase appeared in?,0,0.0,0.0543,0.0543,0.0543,1.0,0.0008,0.1206,0.0
+92,"This band gets it's name from a line that ran through Flint, Michigan and created Thirty Years of Funk: 1969-1999",0,0.6546,0.5854,0.5854,0.5854,0.0,0.7495,0.7407,0.1091
+93,"Who was born more recently, Bryan Howard, or Maurice Greene?",1,0.0,0.5922,0.5922,0.5922,0.0,0.9341,0.6574,0.0645
+94,"Josefina Villamil Tinajero is a Mexican-American educator and author, she has worked as a professor of bilingual education at which public research university in El Paso, Texas, United States?",1,0.1282,0.0642,0.0642,0.0642,1.0,0.0004,0.1227,0.0357
+95,What was the occupation of the man who is commemorated by the Uncle Sam Memorial Statue ?,1,0.0,0.0718,0.0718,0.0718,1.0,0.0,0.1595,0.0
+96,"Who composed the original score and songs of the film based on the play ""The Man Who Was Peter Pan"" by Allan Knee ?",0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+97,"Which artist also had a solo career, Jeff Martin or Mark Rankin?",0,0.0,0.2784,0.2784,0.2784,1.0,0.7483,0.1199,0.0
+98,Who was a member of French Parliament that inspired a political group founded by George Valois and Édouard Berth?,0,0.523,0.2841,0.2841,0.2841,1.0,0.0005,0.5643,0.12
+99,Are both Elizabeth Jane Howard and Patrick White from the same country?,1,0.2686,0.4652,0.4652,0.4652,0.0,0.9907,0.3449,0.0513
+100,"CF Industries Holdings, Inc. is a North American manufacturer and distributor of agricultural fertilizers, based in Deerfield, Illinois, for its first,of how many year, it was a federation of regional agricultural supply cooperatives, a co-operative federation or secondary co-operative is a co-operative in which all members are, in turn, co-operatives?",1,0.0,0.759,0.759,0.759,0.0,0.6459,0.9227,0.6
+101,"Who is the Daughter of Sheryl Gascoigne, former wife of a footballer?",0,0.7784,0.7212,0.7212,0.7212,0.0,0.9981,0.7784,0.2857
+102,What beverage do both Cervecería Nacional Dominicana and Ambev produce?,1,0.0,0.5987,0.5987,0.5987,0.0,0.7516,0.7553,0.1333
+103,"Where is a company based that is attempting to build a flyable reproduction of a German aircraft given the nicknames ""Swallow"" and ""Storm Bird""?",1,0.4356,0.4806,0.4806,0.4806,0.0,0.7444,0.5,0.129
+104,"Arlette Roxburgh is best known for singing a national anthem whose lyrics come from what poem, before every New Jersey Devils home game?",0,0.0,0.311,0.311,0.311,1.0,0.7496,0.1913,0.0
+105,Tarik Azzougarh conceptualized this album for which only one copy was made in 2015.,0,0.0,0.2844,0.2844,0.2844,1.0,0.0008,0.5444,0.1569
+106,"The Death of General Wolfe, an oil painting, depicts a scene from which pivotal French and Indian War battle that took place outside the walls of Quebec City?",0,0.0655,0.2876,0.2876,0.2876,1.0,0.6872,0.181,0.0
+107,"What is the real name of the Epic Records singer that provided voicework for ""Tangled""?",1,0.0,0.3601,0.3601,0.3601,0.0,0.7494,0.2698,0.0556
+108,"When was the American rapper from Atlanta, Georgia born who's song is ""Sneakin'""?",0,0.5581,0.2664,0.2664,0.2664,1.0,0.0003,0.5581,0.0606
+109,"Roger Daltrey and David Gilmour, have what occupation, nationality in common?",1,0.3546,0.4104,0.4104,0.4104,0.0,0.7499,0.3926,0.0351
+110,Corey Reynolds is best known for his roles as David Gabriel and Seaweed from which two productions?,0,0.0,0.5987,0.5987,0.5987,0.0,0.999,0.4936,0.3077
+111,C. Scott Vanderhoef was the running mate of the minority leader who is now part of which New York district?,0,0.4971,0.2599,0.2599,0.2599,1.0,0.0393,0.472,0.1429
+112,What film starred Miley Cyrus and was written by Nicholas Sparks?,1,0.5887,0.6564,0.6564,0.6564,0.0,0.9931,0.7152,0.1463
+113,"Who was born first, Hannah Arendt or Peter Ackroyd?",0,0.7092,0.644,0.644,0.644,0.0,0.8403,0.7598,0.2
+114,what is the origin city and state of the singer in which Jorge Salan played lead guitarist for in an European tour?,0,0.0,0.2249,0.2249,0.2249,1.0,0.7497,0.0,0.0
+115,Which American college that has sent students to Centre for Medieval and Renaissance Studies was founded in 1874?,0,0.0,0.2435,0.2435,0.2435,1.0,0.7499,0.0412,0.0
+116,What decade did Axl Rose and Masatoshi Ono vie for musical popularity?,1,0.0,0.1977,0.1977,0.1977,1.0,0.0003,0.3864,0.0952
+117,Jimmy Rooney was on the Australia national soccer team and a member of what?,0,0.0,0.3398,0.3398,0.3398,1.0,0.7494,0.2555,0.0
+118,"Which university was founded first, The Northcap University or San Diego State University?",0,0.7095,0.5554,0.5554,0.5554,0.0,0.5266,0.7523,0.2353
+119,The Finer Things was written by which rock and blues English musician?,0,0.0,0.0628,0.0628,0.0628,1.0,0.0,0.1397,0.0
+120,"Who managed the 5,000 acre estate of Thomas Jefferson?",1,0.605,0.5208,0.5208,0.5208,0.0,0.7496,0.5566,0.1818
+121,MERSI protocol was used by the computer that was a fourth generation of what type of processors?,1,0.4938,0.4776,0.4776,0.4776,0.0,0.7454,0.4991,0.1176
+122,Who is known as the Milwaukee Cannibal and got John Balcerzak fired for giving him an injured child?,1,0.0,0.0802,0.0802,0.0802,1.0,0.0003,0.1781,0.0
+123,"The Bear is the second of the two operas by William Walton, the libretto was based on which play of the same title, by Anton Chekhov?",1,0.0,0.617,0.617,0.617,0.0,0.7492,0.726,0.2623
+124,"""Electrical Storm"" is a song by Irish rock band U2, they performed it on the second concert of which worldwide concert tour by rock band U2, launched in support of the group's 2009 album ""No Line on the Horizon""?",1,0.6471,0.5672,0.5672,0.5672,0.0,0.7428,0.6525,0.2029
+125,"What contest Did Peter Nalitch known for ""Lost and Forgotten"" place 11th in?",0,0.6856,0.7197,0.7197,0.7197,0.0,0.9988,0.8276,0.1905
+126,How does Ahmed Mohammed Ali's assist the Egyptian president Abdel Fattah el-Sisi?,0,0.0,0.5054,0.5054,0.5054,0.0,0.7377,0.5877,0.0784
+127,"What date did this television program start that has the opening and closing theme music was written by composer who was an American avant-garde composer, pianist, author and inventor and born July 8, 1900?",0,0.0,0.2249,0.2249,0.2249,1.0,0.7497,0.0,0.0
+128,"Who is the operator of two malls in Quezon City, one of which on the EDSA corner near Ortigas Avenue?",0,0.7145,0.578,0.578,0.578,0.0,0.749,0.7111,0.1333
+129,"The Paul McCartney Collection is a series of 16 remastered CDs by Paul McCartney of his solo and Wings albums, the first half comprised albums from London Town is the sixth studio album by Wings, released in what year?",1,0.0166,0.0444,0.0444,0.0444,1.0,0.0131,0.076,0.0377
+130,"Close At Hand is the second EP by James McCartney, son of Paul and Linda McCartney, a British musician and songwriter living in London, born on which date?",0,0.0,0.3159,0.3159,0.3159,1.0,0.7461,0.1855,0.0345
+131,"Which woman's magazine was published first, the Australian Woman's Mirror or Woman's Viewpoint?",0,0.6771,0.4907,0.4907,0.4907,0.0,0.4551,0.6018,0.3333
+132,"Who is the mother of the prince that had allegations made against him related to the lawsuit ""Two Jane Does v US""?",0,0.6585,0.5755,0.5755,0.5755,0.0,0.7603,0.7124,0.1071
+133,How long was the confrontation the USS Barataria saw as part of the Cold War?,1,0.4235,0.4318,0.4318,0.4318,0.0,0.7494,0.4426,0.0312
+134,"Princess Maria-Olympia is the only daughter of the eldest son and second child of Constantine II, who was the last king of Greece from 1964 until when?",1,0.0,0.3177,0.3177,0.3177,1.0,0.0024,0.5875,0.2105
+135,What is the name of the Austro-Hungarian general and historian from the province straddling the southern border of the Habsburg Monarchy?,0,0.111,0.0835,0.0835,0.0835,1.0,0.0001,0.1856,0.0
+136,"Who has more citizenship, Ferenc Molnár or Orhan Pamuk?",1,0.0,0.39,0.39,0.39,0.0,0.6558,0.3802,0.0889
+137,"Danish ice hockey coach, Olaf Eller, is the father of Danish professional ice hockey player who was drafted by what team in the first round of the 2007 NHL Entry Draft?",0,0.7202,0.6787,0.6787,0.6787,0.0,0.9953,0.7437,0.1818
+138,"When  was the Soviet nuclear physicist died after who's name The SS ""Fizik Kurchatov"" was named?",0,0.8309,0.7245,0.7245,0.7245,0.0,0.7563,0.8281,0.5
+139,Which mountain range contains the highest rise of the Hazel River?,0,0.7238,0.6148,0.6148,0.6148,0.0,0.7503,0.765,0.1818
+140,What song did the future wife of Brian May take to Number Four in the UK singles chart ?,0,0.0,0.0568,0.0568,0.0568,1.0,0.0196,0.1236,0.0
+141,"What was the predominant Western and Central European culture of Early Iron Age Europe from the 8th to 6th centuries BC that  the lakeside village of Hallstatt, Austria is considered the model ?",0,0.6555,0.6419,0.6419,0.6419,0.0,0.9877,0.7123,0.1
+142,What member of the Federation of Indian Airlines is the largest Asian low-cost carrier?,1,0.0,0.433,0.433,0.433,0.0,0.7449,0.4162,0.0889
+143,"Which game was published first, Villa Paletti or Taj Mahal?",1,0.0,0.2651,0.2651,0.2651,1.0,0.7448,0.0578,0.0625
+144,At which world recognized festival did Stephen Ouimette perform on stage?,0,0.7271,0.615,0.615,0.615,0.0,0.7499,0.7994,0.1212
+145,"What was a brand of soda introduced by the Pepsi company in 2006 and discontinued in 2009, Cactus Cooler or Jazz ?",0,0.7928,0.6193,0.6193,0.6193,0.0,0.7502,0.7928,0.15
+146,"Which American actor, director and producer best known for his distinctive supporting and character roles- typically lowlifes, eccentrics, bullies, and misfits – Hoffman acted in many films from the early 1990s until his death at age 46, did sister James indicate might have too much personal attention with the school's only black student Donald Miller (Joseph Foster)?",1,0.0,0.2249,0.2249,0.2249,1.0,0.7496,0.0,0.0
+147,"ConnectU was founded by Cameron Winklevoss, Divya Narendra, and this professional rower?",0,0.531,0.5296,0.5296,0.5296,0.0,0.7509,0.6291,0.0851
+148,"When was the singer of ""Laugh at Me"" born?",0,0.8445,0.7292,0.7292,0.7292,0.0,0.7506,0.8424,0.5
+149,Which  American politician did Donahue replaced,1,0.0,0.2269,0.2269,0.2269,1.0,0.7489,0.0049,0.0
+150,"In what year did Tim Gaines leave the band whose eleventh release was ""The Roxx Regime Demos""?",1,0.0,0.2827,0.2827,0.2827,1.0,0.7472,0.1069,0.0417
+151,"Murabaḥah is a term for a sales contract where the buyer and seller agree on the markup, the ratio between the cost of a good or service and what?",0,0.1186,0.2825,0.2825,0.2825,1.0,0.7501,0.1278,0.0
+152,"Which is a genus of more species, Crambe or Nomocharis?",1,0.0,0.4958,0.4958,0.4958,0.0,0.7468,0.5088,0.1714
+153,Stomp the Yard: Homecoming is a 2010 drama film whose cast members include a rapper known for his roll as Ricky in what 2011 film?,0,0.5876,0.5293,0.5293,0.5293,0.0,0.7498,0.628,0.087
+154,"Randy Newman wrote the country song ""Feels Like Home"" for which multiple award-winning singer?",1,0.3445,0.442,0.442,0.442,0.0,0.7497,0.3849,0.1754
+155,"Joshua Hett Smith House (demolished), also known as Treason House, was a historic house in West Haverstraw, New York, during the American Revolutionary War, which General met at the house with British Major John André, while plotting to surrender the fort at West Point, who was the general during the American Revolutionary War, who fought for the American Continental Army, and later defected to the British Army?",1,0.3375,0.2787,0.2787,0.2787,1.0,0.3186,0.3485,0.1053
+156,The Genève-Servette HC competes in a league know by what name prior to the 2017-2018 season?,1,0.0,0.1809,0.1809,0.1809,1.0,0.0008,0.3412,0.1091
+157,"Which court case, Gonzales v. Carhart or Lawrence v. Texas, struck down the sodomy law?",0,0.5297,0.4633,0.4633,0.4633,0.0,0.7135,0.5128,0.0741
+158,"What distinctive surface is the historic Merton Street, that runs parallel to High Street in the southeastern university city of Oxford, England?",1,0.4378,0.4381,0.4381,0.4381,0.0,0.7494,0.4455,0.0513
+159,"Who was the choreographer for the IP Man movie that's theme focuses on ""Life"" itself?",1,0.1911,0.3279,0.3279,0.3279,1.0,0.744,0.2328,0.0
+160,What was the name of the downtown sports stadium that the Minnesota Twins played in beginning in 1982?,0,0.5401,0.5735,0.5735,0.5735,0.0,0.9411,0.5954,0.093
+161,In which country Hermann Neubacher held a diplomatic post as an Austrian Nazi politician when it was under the control of the Kingdom of Italy?,0,0.2851,0.1619,0.1619,0.1619,1.0,0.0004,0.3371,0.0408
+162,"Nasty Gal is an American retailer that specializes in fashion for young women, founded in 2006, by which American businesswoman, that started it at age 23?",1,0.0,0.6314,0.6314,0.6314,0.0,0.7472,0.7868,0.2128
+163,What was the name of the book written by Hilda Neihardt's father that was based on the second cousin of the war chief Crazy Horse?,0,0.0,0.4812,0.4812,0.4812,0.0,0.7489,0.4991,0.1277
+164,What year did Heinrich Himmler join the unit that used the concept of Wehrbauer to refer to soldiers designated as settlers for the lands conquered during the German invasions of the Soviet Union and Poland?,1,0.0,0.4195,0.4195,0.4195,0.0,0.7489,0.433,0.0
+165,The National Education Goals Panel discontinued their reports by the Act that reauthorized which piece of legislation?,1,0.0927,0.2717,0.2717,0.2717,1.0,0.7499,0.0792,0.0444
+166,"The central character of ""The Adventures of Brer Rabbit"" was later adapted into which 1946 Walt Disney Company motion picture film?",0,0.0,0.3237,0.3237,0.3237,1.0,0.7499,0.2193,0.0
+167,"Peter Rufai attended which movie premier on September 25, 1016?",1,0.0,0.5143,0.5143,0.5143,0.0,0.6674,0.6326,0.1176
+168,What is the full name of the tract that gave rise to the words quoted in the title of the British sitcom Upstart Crow?,0,0.0,0.1996,0.1996,0.1996,1.0,0.0159,0.3885,0.0952
+169,The Philippine dance similar to Cheraw dance originated in what era?,1,0.0,0.3528,0.3528,0.3528,0.0,0.7479,0.2855,0.0
+170,Clunk Click Every Trip starred the DJ and fundraiser who hosted what BBC television show?,1,0.6182,0.5526,0.5526,0.5526,0.0,0.7499,0.6426,0.1538
+171,"Trey Anastasio and Glenn Bidmead, have which mutual occupation?",1,0.0,0.5694,0.5694,0.5694,0.0,0.9964,0.5538,0.0851
+172,Where is the constituency that Victoria Atkins has represented since May 2015 located?,1,0.0,0.3699,0.3699,0.3699,0.0,0.8446,0.2588,0.0
+173,"Where was the creator of the fictional character ""Cogliostro"" born?",0,0.718,0.3611,0.3611,0.3611,0.0,0.0293,0.7195,0.1143
+174,Where was Honest Ed's s store located at in Canada?,1,0.0,0.1583,0.1583,0.1583,1.0,0.2735,0.1694,0.0
+175,Which Indian singer participated in Indian Idol and also sung a duet with Arijit Singh?,1,0.0,0.4011,0.4011,0.4011,0.0,0.7439,0.3953,0.0
+176,What kind of alcoholic drink does Stinger and Lynchburg Lemonade have in common?,1,0.0,0.5342,0.5342,0.5342,0.0,0.7495,0.6202,0.1212
+177,within which ancient kingdom located in present-day Eritrea is Aksumite currency used,0,0.0,0.5272,0.5272,0.5272,0.0,0.7499,0.6188,0.0952
+178,"Interbol, is an international space project under the leadership of which organization, and the Space Research Institute of the Russian Academy of Sciences, the goal of the project is to study the correlations between which item, can simply be considered as a gaseous mixture of negatively charged electrons and highly charged positive ions, however, true plasma production is from the distinct separation of these ions and electrons that produces an electric field, which in turn, produces electric currents and magnetic fields, in the tail of the magnetosphere and in the Van Allen radiation belt?",1,0.0,0.2541,0.2541,0.2541,1.0,0.0077,0.5039,0.1
+179,"What children's novel told the story of Juana Maria, a Nicoleno Native American that was left alone on San Nicolas Island?",0,0.7395,0.4977,0.4977,0.4977,0.0,0.5158,0.7368,0.0455
+180,Which English writer argued that women outhg to have an education in her book from 1792?,0,0.5875,0.5653,0.5653,0.5653,0.0,0.7504,0.7124,0.0784
+181,What honor was a producer of the album As I Am granted in 2015?,0,0.0,0.2019,0.2019,0.2019,1.0,0.0063,0.4192,0.0455
+182,What is the birthdate of this English former footballer who played as a striker and who played for the 2012-13 Sheffield United F.C. season?,0,0.0283,0.2753,0.2753,0.2753,1.0,0.7297,0.1253,0.0
+183,De Wilp is a northeastern village in the Netherlands on the border of Groningen and which other province?,1,0.4684,0.2391,0.2391,0.2391,1.0,0.0198,0.4917,0.0476
+184,"Which landmark civil rights decision of the United States Supreme Court involved the issue of interracial marriage that used the Latin phrase "" Et uxor?""",0,0.4693,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+185,"In which year was the author of Clara S, musikalische Tragödie born?",1,0.0,0.367,0.367,0.367,0.0,0.4545,0.4472,0.1176
+186,"Which magazine was founded first, VIVmag or Allure?",1,0.0,0.2291,0.2291,0.2291,1.0,0.75,0.0091,0.0
+187,"Mile 81 contained an excerpt from what Stephen King novel that was published November 8, 2011?",1,0.0,0.3178,0.3178,0.3178,1.0,0.7483,0.1677,0.0714
+188,Mary Soames' mother was born on what date?,1,0.0,0.5111,0.5111,0.5111,0.0,0.7461,0.5828,0.1
+189,"Marcia Gardner is an Australian screenwriter who has worked on such shows as which Australian television series that premiered on ABC TV on 1 February 2013 at 8:30 pm, and the series stars Craig McLachlan in the lead role of Doctor Lucien Blake?",0,0.737,0.5356,0.5356,0.5356,0.0,0.6145,0.7178,0.1132
+190,"Which is currently more valuable, Temagami-Lorrain Mine or Meadowbank Gold Mine?",0,0.0,0.6519,0.6519,0.6519,0.0,0.7508,0.8199,0.2308
+191,Reagan and Give Us Our Skeletons were both which kind of films?,1,0.0,0.277,0.277,0.277,1.0,0.5776,0.2306,0.0
+192,The Dutch guilder is the currency of the country that has what type of governmental system?,0,0.7158,0.6251,0.6251,0.6251,0.0,0.75,0.8098,0.1429
+193,"Dharmatama is a 1975 Hindi thriller movie, and the first Bollywood film to be shot in Afghanistan,the title character was based on matka, king Ratan Khatri, Matka"" gambling or satta"" is a form of lottery which originally involved betting on the opening and closing rates of cotton transmitted from where?",0,0.6695,0.6116,0.6116,0.6116,0.0,0.8144,0.6991,0.2105
+194,A Miser Brothers' Christmas was based on some of the characters from a stop motion spcieal based on a book by who?,0,0.5484,0.5517,0.5517,0.5517,0.0,0.7498,0.6779,0.087
+195,"what does Wardle, Greater Manchester and South Pennines have in common?",1,0.6521,0.5731,0.5731,0.5731,0.0,0.7504,0.6759,0.1754
+196,"The 42d Attack Squadron of the United States Air Force flies General Atomics MQ-9 Reaper, sometimes called Predator B, is an unmanned aerial vehicle (UAV) capable of remotely controlled or autonomous flight operations, developed by General Atomics Aeronautical Systems (GA-ASI), primarily for which organization?",0,0.8029,0.7557,0.7557,0.7557,0.0,0.9984,0.8714,0.2564
+197,"Name the town in Afghanistan which became famous for torture and prisoner abuse cases, including the homicides of two unarmed civilian Afghan prisoners at the BCP, for which Carolyn Wood, a US Army captain was implicated by the Fay report?",1,0.0,0.4137,0.4137,0.4137,0.0,0.749,0.3747,0.0816
+198,"Which 1998 motion picture based on author Stephen McCauley's novel stars an actor who appeared in ""The Cider House Rules"" (1999) and ""Ant-Man"" (2015)?",0,0.0,0.3204,0.3204,0.3204,1.0,0.7426,0.1979,0.0345
+199,Nikolay Rastorguyev is the lead singer of the Russian rock band from what city?,1,0.0,0.3342,0.3342,0.3342,1.0,0.7479,0.2439,0.0
+200,"John Maitland is a former American football running back, who earned what award that is given to winners of the Super Bowl?",0,0.7208,0.5805,0.5805,0.5805,0.0,0.7497,0.7208,0.125
+201,"What was the other name for the extinct tiger subspecies, which inhabited the sparse forests and riverine corridors west and south of the Caspian Sea, from Turkey, Mesopotamia, Iran and the Caucasus, that has a project reestablishing populations of the Siberian tiger by introducing them as replacements to the extinct tiger?",0,0.5513,0.3117,0.3117,0.3117,1.0,0.0507,0.5954,0.1143
+202,Ishmael Muhammad is the assistant minister to which leader formerly known as Louis X?,0,0.5112,0.5778,0.5778,0.5778,0.0,0.7499,0.7387,0.0816
+203,Are Yeager Airport and Albert J. Ellis Airport located in the same country?,1,0.0,0.2406,0.2406,0.201,2.0,0.00145,0.48044999999999993,0.09570000000000001
+204,Which painter created the 'Beguiling of Merlin' and was closely associated with the later part of the Pre-Raphaelite movement?,0,0.0689,0.4027,0.4027,0.4027,0.0,0.7494,0.3273,0.1224
+205,Which movie came out first Go Further or Pumping Iron ?,1,0.0,0.2342,0.2342,0.2342,1.0,0.0059,0.4599,0.1017
+206,What wrestling promotion was formed by the current NEVER Openweight Champion?,1,0.3592,0.4113,0.4113,0.4113,0.0,0.75,0.3781,0.0645
+207,What do Ian Astbury and George Thorogood have in common?,0,0.5883,0.5552,0.5552,0.5552,0.0,0.7486,0.6653,0.125
+208,What company produced both The Barefoot Executive and The Last Flight of Noah's Ark?,1,0.4794,0.4689,0.4689,0.4689,0.0,0.749,0.4831,0.1071
+209,"The film, The Silent House (Spanish: ""La Casa Muda""), starred which actress who was also nominated for the Broadcast Film Critics Association Award for Best Actress?",1,0.0,0.4099,0.4099,0.4099,0.0,0.7491,0.3068,0.1887
+210,"Name the far right French political movement, whose name was given to a journal, and who went on to influence Acción Española, a Spanish cultural association active during the Second Spanish Republic?",0,0.6591,0.5935,0.5935,0.5935,0.0,0.7497,0.7708,0.087
+211,Seiryuzan Zuigan-ji is a temple with teachings that originated from what country?,1,0.0,0.4032,0.4032,0.2012,1.0,0.70055,0.37599999999999995,0.09525
+212,Sarah Weddington is an attorney who represented a plaintiff who later became an activist in what movement?,1,0.1748,0.1063,0.1063,0.1063,1.0,0.0065,0.2155,0.0357
+213,Who is an English footballer who plays as a midfielder for the club originally known as Kirkham & Wesham?,0,0.0,0.2563,0.2563,0.2563,1.0,0.7497,0.0697,0.0
+214,Was Syd Barrett or Nate Albert born first?,0,0.5451,0.4871,0.4871,0.4871,0.0,0.7534,0.5062,0.1333
+215,"To which group of dialects does the ""Walserdeutsch"" dialect spoken in the German town of Issime belong?",0,0.2261,0.3232,0.3232,0.3232,1.0,0.7465,0.2206,0.0
+216,Jigsaw Puzzle was from which December 1968 Rolling Stones album?,1,0.5946,0.3016,0.3016,0.3016,1.0,0.0001,0.6207,0.0889
+217,"Queen Mab, is a fairy referred to in William Shakespeare's play ""Romeo and Juliet"", where ""she is the fairies' midwife"", in her play, her activity is described in a famous speech by which fictional character in William Shakespeare's 1597 tragedy, a close friend to Romeo and a blood relative to Prince Escalus and Count Paris?",1,0.6805,0.3293,0.3293,0.3293,1.0,0.0002,0.6522,0.1429
+218,"Of the two Universities, University of Wisconsin–Madison or University of Kansas, is located on Mount Oread?",0,0.0,0.2512,0.2512,0.2512,1.0,0.3602,0.318,0.0
+219,"During Clifton M. Speegle tenure, Oklahoma State was 0–8 in the Bedlam Series which is the athletics rivalry between the University of Oklahoma Sooners and what team?",0,0.605,0.5417,0.5417,0.5417,0.0,0.746,0.6323,0.1333
+220,when was the later owner of Question Mark & the Mysterians died?,1,0.0,0.1745,0.1745,0.1745,1.0,0.5818,0.0,0.0
+221,"Which professional tennis player achieved a higher World ranking, Bob Lutz or Goran Ivanišević?",0,0.1649,0.3079,0.3079,0.3079,1.0,0.7357,0.1938,0.0
+222,"How much profit has the logo of the American athletic shoe and clothing manufacturer who has trademarked the slogan ""Just Do It"" made?",1,0.2895,0.3649,0.3649,0.3649,0.0,0.7486,0.3118,0.0
+223,"Miracle is a song by Julian Perretta, that was a collaboration with what Belgian DJ and record producer that is best known for ""Are you with me"" and ""Reality""?",0,0.308,0.409,0.409,0.409,0.0,0.7735,0.3298,0.1143
+224,Are George Avakian and Bobby Managoff both record producers?,1,0.3459,0.1762,0.1762,0.1762,1.0,0.0004,0.3399,0.093
+225,What is name of the show that was replaced by the Nickelodeon series that starred Larisa Oleynik in the mid-1990s?,0,0.0,0.2919,0.2919,0.2919,1.0,0.7051,0.1786,0.0
+226,"What year was the mother of Masako, Crown Princess of Japan born?",1,0.0,0.4309,0.4309,0.4309,0.0,0.7487,0.4141,0.08
+227,The Blackburn Rovers F.C. striker from Bayern Munich is a Paraguayan footballer and the the sixth Paraguay national team player to reach what?,0,0.0,0.352,0.352,0.352,0.0,0.7497,0.2589,0.0426
+228,What was the full name of the leader of the band that Tommy Duncan was a part of?,0,0.0,0.2437,0.2437,0.2437,1.0,0.6466,0.1105,0.0
+229,What genre is the Dumb and Dumber Moive?,0,0.6898,0.6574,0.6574,0.6574,0.0,0.9953,0.6898,0.1935
+230,What is the birth date of the actor who portrays the highly skilled killer relying on his brute strength and improvising any situation to quickly dispatch his victims?,0,0.0,0.2328,0.2328,0.2328,1.0,0.7442,0.0211,0.0
+231,"Jill Jones is a poet and writer from Sydney, Australia, she is a senior lecturer at which public university located in Adelaide, South Australia, established in 1874?",0,0.0,0.4459,0.4459,0.4459,0.0,0.8032,0.4195,0.0645
+232,What move did Liev Schreiber appear in immediately prior to Jakob the Liar?,0,0.0,0.1384,0.1384,0.1384,1.0,0.0012,0.3073,0.0
+233,What episode of South Park was created using the Snapz Pro X program for macOS?,0,0.6104,0.5329,0.5329,0.5329,0.0,0.7157,0.6263,0.1455
+234,"Jack Scrimshaw debuted at the match held at what stadium in Westcourt, Cairns?",1,0.0,0.5973,0.5973,0.5973,0.0,0.7458,0.7243,0.1905
+235,Who was Thomas Helveg's coach just before he helped win the 999 Serie A championship,0,0.5766,0.5518,0.5518,0.5518,0.0,0.7499,0.678,0.087
+236,"What is a major airline operating flights from Kuala Lumpur International Airport and from secondary hubs in Kota Kinabalu and Kuching to destinations throughout Asia, Oceania and Europe, whos executive officer is a veteran in the tourism and aviation industry with over 30 years of experience in related fields ?",0,0.7705,0.6471,0.6471,0.6471,0.0,0.7495,0.8341,0.1875
+237,In what year was the spy captured in the same five year period as Julius and Thel Rosenberg born?,1,0.0,0.089,0.089,0.089,1.0,0.0016,0.1521,0.0816
+238,How to Survive a Plague includes footage of a demonstration at a cathedral in what city?,1,0.0,0.3088,0.3088,0.3088,1.0,0.7501,0.1861,0.0
+239,"The actress that plays Sarah Hurst in ""Easy Virtue"" stars with Dervla Kirwan in a 2012 supernatural thriller film written by who?",1,0.0,0.1589,0.1589,0.1589,1.0,0.0,0.3239,0.0526
+240,"In which school was the fictional character in ""The Simpsons"" which was voice by Marcia Wallace a teacher?",0,0.3667,0.4375,0.4375,0.4375,0.0,0.7425,0.4487,0.0513
+241,Who started the Swiss Reformed Church and initially promoted the Reformation in Switzerland?,0,0.5413,0.4989,0.4989,0.4989,0.0,0.7497,0.566,0.0769
+242,Coco is a film based on an idea by which director and film editor?,1,0.0,0.5025,0.5025,0.5025,0.0,0.7413,0.5467,0.1364
+243,Are both Sergei Sobolev and Mikhail Leonidovich Gromov members of the IHÉS in France?,1,0.0,0.4533,0.4533,0.4533,0.0,0.7421,0.4386,0.1333
+244,Kim Coco Iwamoto appointed who as the seventh governor of Hawaii?,1,0.2357,0.2999,0.2999,0.2999,1.0,0.5489,0.3006,0.0
+245,Buffalo Springfield recorded a song in 1966 released on what record label?,1,0.0,0.5577,0.5577,0.5577,0.0,0.7497,0.6283,0.2
+246,"What country does Stoughton & Stoughton and Mount Vernon, New York have in common?",1,0.3615,0.2022,0.2022,0.2022,1.0,0.0172,0.3615,0.1538
+247,Which actress in Liebestraum is also a visual artist?,0,0.0,0.5327,0.5327,0.5327,0.0,0.7502,0.6095,0.1333
+248,What airline is the Japanese member of the low-cost Value Alliance wholly owned by?,0,0.6796,0.5943,0.5943,0.5943,0.0,0.75,0.7539,0.12
+249,"Which song, by the man who played guitar for most of the performances on Let It Rock, was number 5 on the US ""Billboard"" Hot chart sometime in the 1980s or 1990s?",1,0.1058,0.289,0.289,0.289,1.0,0.7493,0.1427,0.0
+250,The Strictly the BBC television show featuring the Australian Jason Gilkison is based on what professional partner sport?,1,0.4203,0.4466,0.4466,0.4466,0.0,0.7472,0.4707,0.0426
+251,In between The Postal Service and Chagall Guevara which one was formed in 1989?,0,0.0,0.2626,0.2626,0.2626,1.0,0.7485,0.0845,0.0
+252,"Which band along with two other British bands is referred to as the ""unholy trinity of British hard rock and heavy metal in the early to mid-seventies"" whose performance was featured in a 2011 studio compilation album at the BBC's Maida Vale Studios?",1,0.2769,0.372,0.372,0.372,0.0,0.7412,0.2769,0.1
+253,Montfort Browne a British army officer who remained loyal to the British Crown during the American Revolutionary War commanded which loyalist regiment in American Revolutionary War?,1,0.5055,0.5021,0.5021,0.5021,0.0,0.7393,0.4921,0.2353
+254,The Eek! segment Klutter was created by David Silverman and a man that manages what studio?,0,0.0,0.1084,0.1084,0.1084,1.0,0.2084,0.1021,0.0
+255,What actress and model was the mistress to Admiral Haratio Nelson?,0,0.0,0.2833,0.2833,0.2833,1.0,0.75,0.1296,0.0
+256,The Airco DH.9 was named after which British aviation pioneer?,0,0.6584,0.5689,0.5689,0.5689,0.0,0.7499,0.6584,0.1905
+257,"Who died first, Billy Mackenzie or Simon Neil?",0,0.0,0.2292,0.2292,0.2292,1.0,0.6926,0.0477,0.0
+258,Hariharan Pillai Happy Aanu contains music by which arranger from Kerala?,0,0.7105,0.6037,0.6037,0.6037,0.0,0.7917,0.7444,0.125
+259,Boston Custer was the youngest brother of which two-time Medal of Honor recipient?,0,0.7174,0.5215,0.5215,0.5215,0.0,0.5213,0.7447,0.12
+260,Which Michael Jackson cover song was recorded by the American band which has shared the stage with The Ascendicate?,0,0.6263,0.5341,0.5341,0.5341,0.0,0.7478,0.6314,0.1026
+261,"What project was finished at a later date, Panzer VII Lowe or Panzer VII Maus?",1,0.0,0.4428,0.4428,0.4428,0.0,0.7496,0.4842,0.0
+262,In which American football game was Malcolm Smith named Most Valuable player?,0,0.6177,0.5719,0.5719,0.5719,0.0,0.7483,0.6888,0.15
+263,"Which American singer-songwriter from Wichita, Kansas participated in the season two of ""The Voice"".",1,0.0,0.3206,0.3206,0.3206,1.0,0.0002,0.6489,0.1143
+264,"Friedrich Klose (1862–1942) was a German composer, his opera ""Ilsebill"" (1903) is inspired by the music of Richard Wagner and which leading German composer of the late Romantic and early modern eras?",0,0.4337,0.51,0.51,0.51,0.0,0.75,0.5748,0.1053
+265,"Which is farther east, Minneapolis–Saint Paul International Airport or Cheyenne Regional Airport?",0,0.0,0.3504,0.3504,0.3504,0.0,0.7495,0.2789,0.0
+266,Rosa Rio providedsilent film soundtrack accompaniment for which English comic actor?,0,0.6558,0.5874,0.5874,0.5874,0.0,0.9894,0.6011,0.08
+267,what mutiny in India was thwarted by MI5(b) during World War I?,0,0.0,0.316,0.316,0.316,1.0,0.7498,0.2023,0.0
+268,"Dr Donald John Pinkava, is a botanist, specialising in cacti and succulents, and he is the discoverer of some of their varieties, at which public metropolitan research university on five campuses across the Phoenix metropolitan area, and four regional learning centers throughout Arizona, he has which position?",0,0.6148,0.5264,0.5264,0.5264,0.0,0.7064,0.6471,0.093
+269,"No Trace Camping is a Canadian–American independent feature film and television financier and production company which produced the film, ""The F Word”, a 2013 Canadian romantic comedy film directed by who?",1,0.1002,0.1109,0.1109,0.1109,1.0,0.0007,0.1758,0.127

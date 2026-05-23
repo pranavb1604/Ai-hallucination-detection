@@ -65,11 +65,12 @@ def get_nli_pipeline():
     global _nli_pipe
     if _nli_pipe is None:
         logger.info("[M4] Loading NLI model...")
+        import torch
         _nli_pipe = hf_pipeline(
             "text-classification",
             model=M4_MODEL_NAME,
             top_k=None,
-            device=-1,
+            device=0 if torch.cuda.is_available() else -1,
         )
     return _nli_pipe
 

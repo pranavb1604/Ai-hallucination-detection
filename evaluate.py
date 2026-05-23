@@ -14,8 +14,12 @@ Usage:
     python evaluate.py [--rows N]
 """
 
-import sys
 import os
+
+# Force HuggingFace hub to run offline to prevent connection timeouts
+os.environ["HF_HUB_OFFLINE"] = "1"
+import sys
+
 import argparse
 import numpy as np
 import pandas as pd
@@ -28,9 +32,10 @@ sys.path.insert(0, BASE_DIR)
 from config import (
     TRAIN_PATH, TEST_PATH, MODEL_SAVE_PATH, SCORES_DIR,
     M5_INPUT_SIZE, M5_HIDDEN_SIZE_1, M5_HIDDEN_SIZE_2,
+    M5_BUNDLE_PATH, SCALER_SAVE_PATH,
 )
 from feature_extraction import build_question_index, extract_features
-from modules.m5_classifier import load_model, predict_trust, weighted_trust_score
+from modules.m5_classifier import load_model, predict_trust, weighted_trust_score, predict_batch
 
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score,
@@ -57,23 +62,39 @@ def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray,
 def ablation_study(X: np.ndarray, y_true: np.ndarray,
                    threshold: float = 0.5) -> dict:
     """
-    For each module i, replace its column with 0.5 (neutral) and
+    For each module, replace its column with 0.5 (neutral) and
     measure the drop in F1 using the weighted fallback scorer.
     """
-    module_names = ["M1_consistency", "M2_grounding", "M3_uncertainty", "M4_entailment"]
+    # M1 is at 0, M3 is at 1, M2 is at 2, M4 is at 3
+    module_names = [("M1_consistency", 0), ("M2_grounding", 2), 
+                    ("M3_uncertainty", 1), ("M4_entailment", 3)]
     results = {}
+
+    # Extract just the 4 required columns in order (M1, M2, M3, M4)
+    X_fallback = X[:, [0, 2, 1, 3]]
 
     # Baseline (all modules)
     baseline_probs = np.array([
-        weighted_trust_score(*row) for row in X
+        weighted_trust_score(*row) for row in X_fallback
     ])
     baseline_preds = (baseline_probs < threshold).astype(int)   # low trust → hallucinated
     baseline_f1 = f1_score(y_true, baseline_preds, zero_division=0)
     results["baseline_f1"] = round(baseline_f1, 4)
 
-    for i, name in enumerate(module_names):
-        X_ablated = X.copy()
-        X_ablated[:, i] = 0.5   # replace with neutral value
+    for name, col_idx in module_names:
+        X_ablated = X_fallback.copy()
+        
+        # Determine which column in X_fallback corresponds to this module
+        if name == "M1_consistency":
+            fb_idx = 0
+        elif name == "M2_grounding":
+            fb_idx = 1
+        elif name == "M3_uncertainty":
+            fb_idx = 2
+        elif name == "M4_entailment":
+            fb_idx = 3
+
+        X_ablated[:, fb_idx] = 0.5   # replace with neutral value
 
         probs = np.array([weighted_trust_score(*row) for row in X_ablated])
         preds = (probs < threshold).astype(int)
@@ -89,7 +110,7 @@ def ablation_study(X: np.ndarray, y_true: np.ndarray,
 
 # ─── SHAP explanation ─────────────────────────────────────────────────────────
 
-def run_shap(model, X: np.ndarray, save_dir: str) -> None:
+def run_shap(model, X: np.ndarray, save_dir: str, questions: list, answers: list, scaler=None) -> None:
     """
     Compute SHAP values for the neural classifier and save a bar chart.
     """
@@ -100,31 +121,36 @@ def run_shap(model, X: np.ndarray, save_dir: str) -> None:
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
 
-        X_t = __import__("torch").tensor(X, dtype=__import__("torch").float32)
+        # M5 model accepts the 21 engineered features
+        X_four = X[:, [0, 2, 1, 3]]
+        from modules.m5_features import build_batch, FEATURE_NAMES
+        X_eng = build_batch(X_four, questions=questions, answers=answers)
+        if scaler is not None:
+            X_eng = scaler.transform(X_eng)
 
         def model_fn(x_np):
             xt = __import__("torch").tensor(x_np, dtype=__import__("torch").float32)
             with __import__("torch").no_grad():
                 return model(xt).numpy()
 
-        explainer = shap.Explainer(model_fn, X[:100])
-        shap_values = explainer(X[:200])
+        explainer = shap.Explainer(model_fn, X_eng[:100])
+        shap_values = explainer(X_eng[:200])
 
-        feature_names = ["M1 Consistency", "M2 Grounding",
-                         "M3 Uncertainty", "M4 Entailment"]
+        feature_names = FEATURE_NAMES
 
-        fig, ax = plt.subplots(figsize=(7, 4))
+        fig, ax = plt.subplots(figsize=(9, 5))
         mean_abs = np.abs(shap_values.values).mean(axis=0).flatten()
-        ax.barh(feature_names, mean_abs, color=["#6366f1", "#10b981", "#f59e0b", "#ef4444"])
+        colors_bar = ["#10b981", "#ef4444", "#f59e0b", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6", "#f43f5e", "#8be9fd", "#ff79c6", "#ffb86c", "#50fa7b"]
+        ax.barh(feature_names, mean_abs, color=colors_bar)
         ax.set_xlabel("Mean |SHAP value|")
-        ax.set_title("SHAP Feature Importance — Trust Classifier")
+        ax.set_title("SHAP Feature Importance — Trust Classifier (12 Features)")
         plt.tight_layout()
 
         os.makedirs(save_dir, exist_ok=True)
         fig_path = os.path.join(save_dir, "shap_importance.png")
         plt.savefig(fig_path, dpi=150)
         plt.close()
-        print(f"  SHAP chart saved → {fig_path}")
+        print(f"  SHAP chart saved -> {fig_path}")
 
     except Exception as e:
         print(f"  [WARN] SHAP visualisation skipped: {e}")
@@ -156,7 +182,7 @@ def main():
     if args.rows:
         df = df.sample(n=min(args.rows, len(df)), random_state=42).reset_index(drop=True)
 
-    print(f"Evaluating on {len(df)} test rows …")
+    print(f"Evaluating on {len(df)} test rows ...")
 
     # ── Extract features ──────────────────────────────────────────────────────
     features, labels = [], []
@@ -177,24 +203,34 @@ def main():
     y = np.array(labels,   dtype=np.float32)
 
     # ── Load model ────────────────────────────────────────────────────────────
-    use_nn = os.path.exists(MODEL_SAVE_PATH)
-    if use_nn:
-        print(f"\nLoading trained model from {MODEL_SAVE_PATH} …")
-        model = load_model(MODEL_SAVE_PATH, M5_INPUT_SIZE,
-                           M5_HIDDEN_SIZE_1, M5_HIDDEN_SIZE_2)
+    load_path = M5_BUNDLE_PATH if os.path.exists(M5_BUNDLE_PATH) else MODEL_SAVE_PATH
+    has_model = os.path.exists(load_path)
+    
+    if has_model:
+        print(f"\nLoading trained model from {load_path} ...")
+        bundle, scaler = load_model(load_path, SCALER_SAVE_PATH)
     else:
-        print("\n[WARN] No trained model found — using weighted fallback scorer.")
-        model = None
+        print("\n[WARN] No trained model found - using weighted fallback scorer.")
+        bundle, scaler = None, None
 
     # ── Predict ───────────────────────────────────────────────────────────────
-    if use_nn:
-        import torch
-        X_t = torch.tensor(X, dtype=torch.float32)
-        with torch.no_grad():
-            hallucination_probs = model(X_t).squeeze().numpy()
+    questions = df["question"].tolist()
+    answers = df["answer"].tolist()
+
+    if bundle is not None:
+        X_four = X[:, [0, 2, 1, 3]]
+        hallucination_probs = predict_batch(bundle, X_four, questions=questions, answers=answers)
+        
+        # Keep array structure if running a single row
+        if not isinstance(hallucination_probs, np.ndarray):
+            hallucination_probs = np.array([hallucination_probs])
+            
         trust_probs = 1.0 - hallucination_probs
     else:
-        trust_probs = np.array([weighted_trust_score(*row) for row in X])
+        # For fallback, slice only the 4 main modules (M1, M2, M3, M4)
+        # X[:, 0] is m1, X[:, 2] is m2, X[:, 1] is m3, X[:, 3] is m4
+        X_fallback = X[:, [0, 2, 1, 3]]
+        trust_probs = np.array([weighted_trust_score(*row) for row in X_fallback])
         hallucination_probs = 1.0 - trust_probs
 
     # Threshold: trust < 0.5 → predicted hallucinated (label=1)
@@ -204,9 +240,9 @@ def main():
     # ── Metrics ───────────────────────────────────────────────────────────────
     metrics = compute_metrics(y, y_pred, hallucination_probs)
 
-    print("\n" + "═" * 45)
+    print("\n" + "=" * 45)
     print("  EVALUATION RESULTS")
-    print("═" * 45)
+    print("=" * 45)
     print(f"  Accuracy  : {metrics['accuracy']:.4f}")
     print(f"  Precision : {metrics['precision']:.4f}")
     print(f"  Recall    : {metrics['recall']:.4f}")
@@ -216,10 +252,10 @@ def main():
     cm = metrics["confusion_matrix"]
     print(f"    TN={cm[0][0]}  FP={cm[0][1]}")
     print(f"    FN={cm[1][0]}  TP={cm[1][1]}")
-    print("═" * 45)
+    print("=" * 45)
 
     # ── Ablation study ────────────────────────────────────────────────────────
-    print("\nRunning ablation study …")
+    print("\nRunning ablation study ...")
     ablation = ablation_study(X, y.astype(int))
     print(f"\n  Baseline F1 (all modules): {ablation['baseline_f1']:.4f}")
     for mod in ["M1_consistency", "M2_grounding", "M3_uncertainty", "M4_entailment"]:
@@ -233,12 +269,12 @@ def main():
     output = {"metrics": metrics, "ablation": ablation}
     with open(results_path, "w") as f:
         json.dump(output, f, indent=2)
-    print(f"\nResults saved → {results_path}")
+    print(f"\nResults saved -> {results_path}")
 
     # ── SHAP ──────────────────────────────────────────────────────────────────
-    if use_nn:
-        print("\nGenerating SHAP explanations …")
-        run_shap(model, X, SCORES_DIR)
+    if bundle is not None and bundle.get("backend") == "nn":
+        print("\nGenerating SHAP explanations ...")
+        run_shap(bundle["model"], X, SCORES_DIR, questions, answers, scaler=scaler)
 
     print("\nEvaluation complete.")
 

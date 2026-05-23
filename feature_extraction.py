@@ -92,6 +92,8 @@ def build_response_samples(
     return responses[:max_samples]
 
 
+import numpy as np
+
 def extract_features(
     question: str,
     answer: str,
@@ -113,5 +115,28 @@ def extract_features(
     m1 = m1_score(question, responses)["m1_score"]
     m2 = m2_score(question, [answer])
     m3 = m3_score(question, responses)["m3_score"]
-    m4 = m4_score(question, [answer], evidence=m2.get("context", ""))["m4_score"]
-    return [m1, m2["m2_score"], m3, m4]
+    m4_dict = m4_score(question, [answer], evidence=m2.get("context", ""))
+    
+    # Calculate average sub-signals across claims
+    claim_scores = m4_dict.get("m4_claim_scores", [])
+    if claim_scores:
+        avg_nli = float(np.mean([c["nli_support"] for c in claim_scores]))
+        avg_semantic = float(np.mean([c["semantic_score"] for c in claim_scores]))
+        avg_lexical = float(np.mean([c["lexical_score"] for c in claim_scores]))
+    else:
+        avg_nli = 0.0
+        avg_semantic = 0.0
+        avg_lexical = 0.0
+
+    return [
+        m1,
+        m3,
+        m2["m2_score"],
+        m4_dict["m4_score"],
+        m4_dict.get("m4_mean_score", 0.0),
+        m4_dict.get("m4_min_score", 0.0),
+        float(m4_dict.get("m4_n_unsupported", 0)),
+        avg_nli,
+        avg_semantic,
+        avg_lexical
+    ]

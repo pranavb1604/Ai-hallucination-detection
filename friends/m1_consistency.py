@@ -41,7 +41,7 @@ def _question_answer_coherence(question: str, answer: str) -> float:
 
 
 def compute_consistency(responses: list[str], question: str = "") -> dict:
- 
+
     if len(responses) < 2:
         mean = (
             _question_answer_coherence(question, responses[0])
@@ -78,7 +78,6 @@ def compute_consistency(responses: list[str], question: str = "") -> dict:
         "std": float(arr.std()),
         "pairs": pairs,
     }
-
 
 
 def score(question: str, responses: list[str]) -> dict:

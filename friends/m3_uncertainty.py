@@ -60,9 +60,9 @@ def _semantic_variance(embeddings: np.ndarray) -> float:
 def score(question: str, responses: list[str]) -> dict:
     """
     Returns:
-         m3_score   : float [0, 1]  — 1 = certain, 0 = maximally uncertain
-         m3_variance: float         — raw semantic variance (for debugging)
-         m3_verdict : str
+        m3_score   : float [0, 1]  — 1 = certain, 0 = maximally uncertain
+        m3_variance: float         — raw semantic variance (for debugging)
+        m3_verdict : str
     """
     if not responses:
         return {

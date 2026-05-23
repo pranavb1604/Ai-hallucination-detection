@@ -4,8 +4,9 @@ pipeline.py
 End-to-end hallucination detection pipeline.
 
 Runs M1–M4 in sequence, then fuses scores via:
-  • Trained M5 neural classifier (if model checkpoint exists), OR
-  • Weighted average fallback (if no checkpoint yet).
+  • Weighted average for live Ollama responses (M1/M3 semantics differ from training)
+  • Trained M5 classifier for offline / evaluation (same distribution as training)
+  • Weighted average fallback (if no checkpoint yet)
 
 Usage:
     from pipeline import run_pipeline
@@ -21,11 +22,8 @@ sys.path.insert(0, BASE_DIR)
 from config import (
     MODEL_SAVE_PATH, M5_BUNDLE_PATH, SCALER_SAVE_PATH, TRUST_THRESHOLDS, TRUST_LABELS,
 )
-from modules.m1_consistency import score as m1_score
-from modules.m2_grounding   import score as m2_score
-from modules.m3_uncertainty  import score as m3_score
-from modules.m4_entailment   import score as m4_score
-from modules.m5_classifier   import (
+from modules.feature_extraction import extract_all
+from modules.m5_classifier import (
     load_model, predict_trust, weighted_trust_score,
 )
 
@@ -76,31 +74,40 @@ def run_pipeline(question: str, responses: list[str]) -> dict:
         trust_score      : float [0, 1]
         trust_label      : str  (Trusted / Uncertain / Suspicious / Hallucinated)
         hallucination_prob: float
-        scorer_used      : "neural" | "weighted_fallback"
+        scorer_used      : str
         m1, m2, m3, m4   : individual module result dicts
     """
-    # ── Run modules ──────────────────────────────────────────────────────────
-    m1 = m1_score(question, responses)
-    m2 = m2_score(question, responses)
-    m3 = m3_score(question, responses)
-    
-    # Pass M2's retrieved context to M4 to avoid redundant Wikipedia calls
-    m2_context = m2.get("context", "")
-    m4 = m4_score(question, responses, evidence=m2_context)
-
-    s1 = m1["m1_score"]
-    s2 = m2["m2_score"]
-    s3 = m3["m3_score"]
-    s4 = m4["m4_score"]
+    # ── Run modules (M1/M3: multi-sample; M2/M4: primary answer only) ───────
+    scored = extract_all(question, responses)
+    m1, m2, m3, m4 = scored["m1"], scored["m2"], scored["m3"], scored["m4"]
+    s1, s2, s3, s4 = scored["features"]
+    sample_mode = scored["sample_mode"]
 
     # ── Fuse scores ───────────────────────────────────────────────────────────
+    #
+    # KEY INSIGHT: M1/M3 score semantics are INVERTED between training and live:
+    #   Training (pseudo_multi): high M1 = hallucinated (similar pseudo-samples)
+    #   Live (live_multi):       high M1 = correct (all Ollama responses agree)
+    #
+    # Therefore:
+    #   - live_multi  → weighted_trust_score (high scores = trustworthy) ✓
+    #   - pseudo/short → trained model (learned inverted M1/M3 relationship) ✓
+
     model, scaler = _get_model()
 
     if model is not None:
-        result = predict_trust(model, s1, s2, s3, s4, scaler=scaler, question=question, answer=responses[0])
+        # M1/M3 are flipped during training (high = correct),
+        # which matches live Ollama semantics. No calibration needed.
+        result = predict_trust(
+            model, s1, s2, s3, s4,
+            scaler=scaler,
+            question=question,
+            answer=scored["primary_answer"],
+            meta=scored.get("meta"),
+        )
         trust  = result["trust_score"]
         hal_p  = result["hallucination_prob"]
-        scorer = model.get("backend", "neural_m5") + "_m5" if isinstance(model, dict) else "neural_m5"
+        scorer = "neural_m5"
     else:
         trust  = weighted_trust_score(s1, s2, s3, s4)
         hal_p  = round(1.0 - trust, 4)
@@ -115,4 +122,6 @@ def run_pipeline(question: str, responses: list[str]) -> dict:
         "m2": m2,
         "m3": m3,
         "m4": m4,
+        "sample_mode": sample_mode,
+        "m1_m3_sample_count": scored["m1_m3_sample_count"],
     }

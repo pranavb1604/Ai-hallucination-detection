@@ -1,5 +1,6 @@
 import os
 
+
 # ─────────────────────────────────────────────
 # BASE PATHS
 # ─────────────────────────────────────────────
@@ -70,7 +71,7 @@ M4_PREMISE_TOP_SENTENCES    = 3      # evidence sentences matched per claim
 # MODULE 5 — TRUST CLASSIFIER
 # ─────────────────────────────────────────────
 
-M5_INPUT_SIZE        = 4                     # M1, M2, M3, M4 scores
+M5_INPUT_SIZE        = 20                    # 20 factual features (engineered)
 M5_HIDDEN_SIZE_1     = 16
 M5_HIDDEN_SIZE_2     = 8
 M5_OUTPUT_SIZE       = 1
@@ -78,7 +79,14 @@ M5_LEARNING_RATE     = 0.001
 M5_EPOCHS            = 100
 M5_BATCH_SIZE        = 32
 
+# Options: "gb" (recommended) | "nn" (legacy) | "auto"
+M5_BACKEND           = "gb"
+
 MODEL_SAVE_PATH      = os.path.join(BASE_DIR, "models", "trust_classifier.pth")
+M5_BUNDLE_PATH       = os.path.join(BASE_DIR, "models", "m5_bundle.pkl")
+SCALER_SAVE_PATH     = os.path.join(BASE_DIR, "models", "scaler_m5.pkl")
+WIKI_CACHE_PATH      = os.path.join(PROCESSED_DATA_DIR, "wiki_cache.pkl")
+
 
 # ─────────────────────────────────────────────
 # TRUST SCORE THRESHOLDS

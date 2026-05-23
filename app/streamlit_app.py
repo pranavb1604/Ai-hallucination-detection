@@ -16,7 +16,7 @@ sys.path.insert(0, BASE_DIR)
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 # DON'T import pipeline or modules here - they'll be imported fresh when needed
-from config import MODEL_SAVE_PATH, TRUST_THRESHOLDS
+from config import MODEL_SAVE_PATH, TRUST_THRESHOLDS, SCALER_SAVE_PATH, M5_BUNDLE_PATH
 
 # ── Ollama config ─────────────────────────────────────────────────────────────
 OLLAMA_URL        = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
@@ -189,7 +189,7 @@ def generate_ollama_responses(question: str, n: int, model: str, temp: float):
 with st.sidebar:
     st.header("⚙️ Settings")
 
-    model_exists = os.path.exists(MODEL_SAVE_PATH)
+    model_exists = os.path.exists(M5_BUNDLE_PATH) or os.path.exists(MODEL_SAVE_PATH)
     if model_exists:
         st.success("✅ Trained M5 model loaded")
     else:
@@ -422,18 +422,22 @@ if run:
 
     # ── Fuse via M5 ───────────────────────────────────────────────────────────
     from modules.m5_classifier import load_model, predict_trust, weighted_trust_score
-    from config import M5_INPUT_SIZE, M5_HIDDEN_SIZE_1, M5_HIDDEN_SIZE_2
 
     s1, s2, s3, s4 = (m1["m1_score"], m2["m2_score"],
                       m3["m3_score"], m4["m4_score"])
 
-    model_exists = os.path.exists(MODEL_SAVE_PATH)
+    model_exists = os.path.exists(M5_BUNDLE_PATH) or os.path.exists(MODEL_SAVE_PATH)
     if model_exists:
-        nn_model    = load_model(MODEL_SAVE_PATH, M5_INPUT_SIZE,
-                                 M5_HIDDEN_SIZE_1, M5_HIDDEN_SIZE_2)
-        result      = predict_trust(nn_model, s1, s2, s3, s4)
-        trust_score = result["trust_score"]
-        scorer_used = "Neural M5 classifier"
+        load_path = M5_BUNDLE_PATH if os.path.exists(M5_BUNDLE_PATH) else MODEL_SAVE_PATH
+        nn_model, scaler = load_model(load_path, scaler_path=SCALER_SAVE_PATH)
+        if nn_model is not None:
+            result      = predict_trust(nn_model, s1, s2, s3, s4, scaler=scaler, question=question, answer=responses[0])
+            trust_score = result["trust_score"]
+            backend_name = nn_model.get("backend", "neural").upper() if isinstance(nn_model, dict) else "NEURAL"
+            scorer_used = f"{backend_name} M5 classifier"
+        else:
+            trust_score = weighted_trust_score(s1, s2, s3, s4)
+            scorer_used = "Weighted fallback (model load failed)"
     else:
         trust_score = weighted_trust_score(s1, s2, s3, s4)
         scorer_used = "Weighted fallback (no trained model)"
