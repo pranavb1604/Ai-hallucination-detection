@@ -21,6 +21,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.metrics import accuracy_score, classification_report, f1_score
 import joblib
+from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold
 
 from modules.m5_features import (
     FEATURE_DIM,
@@ -96,16 +97,48 @@ def _train_gb(
     X_tr_s = scaler.fit_transform(X_tr)
     X_val_s = scaler.transform(X_val)
 
-    clf = GradientBoostingClassifier(
-        n_estimators=400,
-        max_depth=5,
-        learning_rate=0.05,
-        subsample=0.85,
-        min_samples_leaf=8,
-        random_state=42,
-    )
-    clf.fit(X_tr_s, y_tr.astype(int))
+    # ── Hyperparameter tuning with RandomizedSearchCV ─────────────────────
+    param_distributions = {
+        'n_estimators': [200, 300, 400, 500, 600],
+        'max_depth': [3, 4, 5, 6, 7],
+        'learning_rate': [0.01, 0.03, 0.05, 0.08, 0.1],
+        'subsample': [0.75, 0.80, 0.85, 0.90],
+        'min_samples_leaf': [5, 8, 10, 12, 15],
+    }
 
+    base_clf = GradientBoostingClassifier(random_state=42)
+
+    if verbose:
+        print("\n  Running hyperparameter search (50 combos, 3-fold CV)...")
+
+    search = RandomizedSearchCV(
+        base_clf,
+        param_distributions,
+        n_iter=50,
+        cv=StratifiedKFold(n_splits=3, shuffle=True, random_state=42),
+        scoring='f1',
+        n_jobs=-1,
+        random_state=42,
+        verbose=0,
+    )
+    search.fit(X_tr_s, y_tr.astype(int))
+    clf = search.best_estimator_
+
+    if verbose:
+        print(f"  Best params: {search.best_params_}")
+        print(f"  Best CV F1 : {search.best_score_:.4f}")
+
+    # ── 5-fold cross-validation on full training set for robust estimate ──
+    from sklearn.model_selection import cross_val_score
+    cv_scores = cross_val_score(
+        clf, X_tr_s, y_tr.astype(int),
+        cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=42),
+        scoring='f1',
+    )
+    if verbose:
+        print(f"  5-Fold CV F1: {cv_scores.mean():.4f} ± {cv_scores.std():.4f}")
+
+    # ── Evaluate on held-out validation set ───────────────────────────────
     probs = clf.predict_proba(X_val_s)[:, 1]
     threshold, val_acc = _tune_threshold(y_val, probs)
     val_f1 = f1_score(y_val, (probs >= threshold).astype(int), zero_division=0)
@@ -117,6 +150,9 @@ def _train_gb(
         "threshold": threshold,
         "y_val": y_val,
         "probs": probs,
+        "best_params": search.best_params_,
+        "cv_f1_mean": float(cv_scores.mean()),
+        "cv_f1_std": float(cv_scores.std()),
     }
 
     if verbose:

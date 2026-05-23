@@ -174,7 +174,7 @@ def generate_ollama_responses(question: str, n: int, model: str, temp: float):
 with st.sidebar:
     st.header("⚙️ Settings")
 
-    model_exists = os.path.exists(MODEL_SAVE_PATH)
+    model_exists = os.path.exists(M5_BUNDLE_PATH)
     if model_exists:
         st.success("✅ Trained M5 model loaded")
     else:
@@ -388,12 +388,15 @@ if run:
     # ── Fuse via M5 ───────────────────────────────────────────────────────────
     from modules.m5_classifier import load_model, predict_trust, weighted_trust_score
     from config import SCALER_SAVE_PATH
-     
 
     load_path = M5_BUNDLE_PATH if os.path.exists(M5_BUNDLE_PATH) else MODEL_SAVE_PATH
     model_exists = os.path.exists(load_path)
+    bundle = None
+    sample_mode = scored["sample_mode"]
+
     if model_exists:
         bundle, scaler = load_model(load_path, scaler_path=SCALER_SAVE_PATH)
+
         result = predict_trust(
             bundle, s1, s2, s3, s4,
             scaler=scaler,
@@ -583,9 +586,10 @@ if run:
         st.divider()
 
         # SHAP-style bar chart
-        st.subheader("Signal contribution (SHAP-style)")
+        st.subheader("Signal contribution")
         scores_arr = np.array([s1, s2, s3, s4])
-        weights    = np.array([0.25, 0.30, 0.20, 0.25])
+        weights = np.array([0.25, 0.30, 0.20, 0.25])
+
         contribs   = scores_arr * weights
         labels_bar = ["M1 Consistency", "M2 Grounding",
                       "M3 Uncertainty", "M4 Entailment"]
@@ -603,7 +607,7 @@ if run:
             for bar, val in zip(bars, contribs):
                 ax.text(val + 0.002, bar.get_y() + bar.get_height() / 2,
                         f"{val:.3f}", va="center", fontsize=9)
-            ax.set_title("Per-module contribution", fontsize=10)
+            ax.set_title("Per-module contribution (learned weights)", fontsize=10)
             fig.tight_layout()
             st.pyplot(fig)
             plt.close(fig)
@@ -615,9 +619,10 @@ if run:
 
         # Formula
         st.caption(
-            f"Trust = Σ(module × weight)  \n"
-            f"= {s1:.2f}×0.25 + {s2:.2f}×0.30 + {s3:.2f}×0.20 + {s4:.2f}×0.25  \n"
-            f"= **{trust_score:.4f}**"
+            f"Scorer: {scorer_used}  \n"
+            f"Weights: M1={weights[0]:.2f}  M2={weights[1]:.2f}  "
+            f"M3={weights[2]:.2f}  M4={weights[3]:.2f}  \n"
+            f"Trust = **{trust_score:.4f}**"
         )
 
         with st.expander("Raw module output (debug)"):

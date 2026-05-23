@@ -23,6 +23,8 @@ import argparse
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
@@ -30,6 +32,7 @@ sys.path.insert(0, BASE_DIR)
 from config import (
     TRAIN_PATH, MODEL_SAVE_PATH, M5_BUNDLE_PATH, SCALER_SAVE_PATH,
     M5_LEARNING_RATE, M5_EPOCHS, M5_BATCH_SIZE, M5_BACKEND,
+    SCORING_WORKERS,
 )
 from modules.feature_extraction import extract_all
 from modules.m5_classifier import train_model
@@ -41,6 +44,14 @@ def _fit_m5(scored_df: pd.DataFrame):
     X = scored_df[["m1_score", "m2_score", "m3_score", "m4_score"]].values.astype("float32")
     y = scored_df["label"].values.astype("float32")
     modes = scored_df["sample_mode"].tolist() if "sample_mode" in scored_df.columns else None
+
+    # ── Flip M1 and M3 to align with live inference semantics ──
+    # Training pseudo-samples: high M1 = hallucinated (similar pseudo-samples)
+    # Live Ollama:             high M1 = correct (all responses agree)
+    # Flip so HIGH always means CORRECT across both training and live.
+    X[:, 0] = 1.0 - X[:, 0]   # M1: flip consistency
+    X[:, 2] = 1.0 - X[:, 2]   # M3: flip certainty
+
     print(f"\nFeature matrix : {X.shape}")
     print(f"Hallucinated(1): {int(y.sum())} | Correct(0): {int((y == 0).sum())}")
     print(f"M5 backend     : {M5_BACKEND}")
@@ -135,23 +146,21 @@ def main():
     else:
         print("Starting fresh scoring...")
 
-    # ── Extract features ──────────────────────────────────────────────────────
+    # ── Extract features (PARALLEL) ───────────────────────────────────────────
     failed = 0
     total  = len(df)
+    _lock  = threading.Lock()
 
-    for idx, row in tqdm(df.iterrows(), total=total, desc="Scoring rows"):
-        question = str(row["question"])
-        answer   = str(row["answer"])
-        label    = int(row["label"])
-
+    def _score_one(idx, question, answer, label, source):
+        """Score a single row — safe to call from multiple threads."""
         try:
             out = extract_all(question, answer)
             s1, s2, s3, s4 = out["features"]
-            results.append({
+            return {
                 "question": question,
                 "answer":   answer,
                 "label":    label,
-                "source":   row.get("source", ""),
+                "source":   source,
                 "m1_score": round(s1, 4),
                 "m2_score": round(s2, 4),
                 "m3_score": round(s3, 4),
@@ -160,29 +169,34 @@ def main():
                 "m1_m3_n": out["m1_m3_sample_count"],
                 "wiki_title": out["m2"].get("wiki_title", ""),
                 "wiki_relevance": out["m2"].get("wiki_relevance", 0.0),
-            })
+            }
         except Exception as e:
-            failed += 1
-            results.append({
-                "question": question,
-                "answer":   answer,
-                "label":    label,
-                "source":   row.get("source", ""),
-                "m1_score": 0.5,
-                "m2_score": 0.5,
-                "m3_score": 0.5,
-                "m4_score": 0.5,
-                "sample_mode": "error",
-                "m1_m3_n": 0,
-                "wiki_title": "",
-                "wiki_relevance": 0.0,
-            })
-            if failed <= 3:
-                print(f"\n  [WARN] Row {idx} failed: {e}")
+            return None  # skip failed rows instead of polluting with 0.5
 
-        # Save cache every 100 rows — so resume works
-        if len(results) % 100 == 0:
-            pd.DataFrame(results).to_csv(SCORES_CACHE, index=False)
+    workers = min(SCORING_WORKERS, total)
+    print(f"Scoring with {workers} parallel workers...")
+
+    futures = {}
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        for idx, row in df.iterrows():
+            question = str(row["question"])
+            answer   = str(row["answer"])
+            label    = int(row["label"])
+            source   = str(row.get("source", ""))
+            fut = executor.submit(_score_one, idx, question, answer, label, source)
+            futures[fut] = idx
+
+        for fut in tqdm(as_completed(futures), total=len(futures), desc="Scoring rows"):
+            result = fut.result()
+            if result is not None:
+                results.append(result)
+            else:
+                failed += 1
+
+            # Save cache every 100 rows
+            if len(results) % 100 == 0 and len(results) > 0:
+                with _lock:
+                    pd.DataFrame(results).to_csv(SCORES_CACHE, index=False)
 
     # Final save
     scored_df = pd.DataFrame(results)

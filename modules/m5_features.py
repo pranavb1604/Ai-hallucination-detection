@@ -53,9 +53,11 @@ def build_feature_vector(
 
     meta = meta or {}
     m2_found = float(bool(meta.get("m2_found", meta.get("found", False))))
-    m1_std = float(meta.get("m1_std", 0.0))
-    m3_var = float(meta.get("m3_variance", 0.0))
-    pseudo = float(meta.get("sample_mode") == "pseudo_multi")
+    # Disabled: these features differ between training (pseudo-samples) and
+    # live (Ollama), causing distribution shift. Zeroed out for consistency.
+    m1_std = 0.0
+    m3_var = 0.0
+    pseudo = 0.0
     short = float(meta.get("short_answer", False))
 
     feats = [

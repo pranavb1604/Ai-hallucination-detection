@@ -54,7 +54,7 @@ def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray,
 # ─── Ablation study ───────────────────────────────────────────────────────────
 
 def ablation_study(X: np.ndarray, y_true: np.ndarray,
-                   threshold: float = 0.5) -> dict:
+                   bundle: dict = None, threshold: float = 0.5) -> dict:
     """
     For each module i, replace its column with 0.5 (neutral) and
     measure the drop in F1 using the weighted fallback scorer.
@@ -63,10 +63,14 @@ def ablation_study(X: np.ndarray, y_true: np.ndarray,
     results = {}
 
     # Baseline (all modules)
-    baseline_probs = np.array([
-        weighted_trust_score(*row) for row in X
-    ])
-    baseline_preds = (baseline_probs < threshold).astype(int)   # low trust → hallucinated
+    if bundle is not None:
+        baseline_probs = predict_batch(bundle, X)
+        baseline_preds = (baseline_probs >= threshold).astype(int)
+    else:
+        baseline_probs = np.array([
+            weighted_trust_score(*row) for row in X
+        ])
+        baseline_preds = (baseline_probs < threshold).astype(int)
     baseline_f1 = f1_score(y_true, baseline_preds, zero_division=0)
     results["baseline_f1"] = round(baseline_f1, 4)
 
@@ -74,8 +78,12 @@ def ablation_study(X: np.ndarray, y_true: np.ndarray,
         X_ablated = X.copy()
         X_ablated[:, i] = 0.5   # replace with neutral value
 
-        probs = np.array([weighted_trust_score(*row) for row in X_ablated])
-        preds = (probs < threshold).astype(int)
+        if bundle is not None:
+            probs = predict_batch(bundle, X_ablated)
+            preds = (probs >= threshold).astype(int)
+        else:
+            probs = np.array([weighted_trust_score(*row) for row in X_ablated])
+            preds = (probs < threshold).astype(int)
         f1 = f1_score(y_true, preds, zero_division=0)
         drop = baseline_f1 - f1
         results[name] = {
@@ -117,6 +125,45 @@ def run_shap(model, X: np.ndarray, save_dir: str) -> None:
         ax.barh(feature_names, mean_abs, color=["#6366f1", "#10b981", "#f59e0b", "#ef4444"])
         ax.set_xlabel("Mean |SHAP value|")
         ax.set_title("SHAP Feature Importance — Trust Classifier")
+        plt.tight_layout()
+
+        os.makedirs(save_dir, exist_ok=True)
+        fig_path = os.path.join(save_dir, "shap_importance.png")
+        plt.savefig(fig_path, dpi=150)
+        plt.close()
+        print(f"  SHAP chart saved → {fig_path}")
+
+    except Exception as e:
+        print(f"  [WARN] SHAP visualisation skipped: {e}")
+
+
+def run_shap_gb(bundle: dict, X: np.ndarray, save_dir: str) -> None:
+    """SHAP TreeExplainer for GradientBoosting — fast and exact."""
+    try:
+        import shap
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        from modules.m5_features import FEATURE_NAMES, build_batch
+
+        X_eng = build_batch(X)
+        scaler = bundle.get("scaler")
+        if scaler is not None:
+            X_eng = scaler.transform(X_eng)
+
+        explainer = shap.TreeExplainer(bundle["model"])
+        shap_values = explainer.shap_values(X_eng[:200])
+
+        names = FEATURE_NAMES if len(FEATURE_NAMES) == X_eng.shape[1] else [
+            f"f{i}" for i in range(X_eng.shape[1])
+        ]
+
+        fig, ax = plt.subplots(figsize=(10, 8))
+        mean_abs = np.abs(shap_values).mean(axis=0)
+        sorted_idx = np.argsort(mean_abs)
+        ax.barh([names[i] for i in sorted_idx], mean_abs[sorted_idx], color="#6366f1")
+        ax.set_xlabel("Mean |SHAP value|")
+        ax.set_title("SHAP Feature Importance — GradientBoosting Trust Classifier")
         plt.tight_layout()
 
         os.makedirs(save_dir, exist_ok=True)
@@ -206,7 +253,7 @@ def main():
 
     # ── Ablation study ────────────────────────────────────────────────────────
     print("\nRunning ablation study …")
-    ablation = ablation_study(X, y.astype(int))
+    ablation = ablation_study(X, y.astype(int), bundle=bundle, threshold=threshold)
     print(f"\n  Baseline F1 (all modules): {ablation['baseline_f1']:.4f}")
     for mod in ["M1_consistency", "M2_grounding", "M3_uncertainty", "M4_entailment"]:
         info = ablation[mod]
@@ -222,9 +269,12 @@ def main():
     print(f"\nResults saved → {results_path}")
 
     # ── SHAP ──────────────────────────────────────────────────────────────────
-    if use_model and bundle and bundle.get("backend") == "nn":
+    if use_model and bundle:
         print("\nGenerating SHAP explanations …")
-        run_shap(bundle["model"], X, SCORES_DIR)
+        if bundle.get("backend") == "gb":
+            run_shap_gb(bundle, X, SCORES_DIR)
+        elif bundle.get("backend") == "nn":
+            run_shap(bundle["model"], X, SCORES_DIR)
 
     print("\nEvaluation complete.")
 

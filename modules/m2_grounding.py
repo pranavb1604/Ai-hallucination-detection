@@ -9,6 +9,7 @@ Enhancement: spaCy NLP entity extraction, relevance-ranked retrieval,
 """
 
 import re
+import threading
 import requests
 import wikipedia
 import wikipedia.wikipedia as _wiki_module
@@ -23,7 +24,7 @@ _WIKI_API = wikipediaapi.Wikipedia(
 
 class _TimeoutSession(requests.Session):
     def request(self, *args, **kwargs):
-        kwargs.setdefault('timeout', 5.0)
+        kwargs.setdefault('timeout', 3.0)
         return super().request(*args, **kwargs)
 
 _ua_session = _TimeoutSession()
@@ -34,9 +35,11 @@ _wiki_module.SESSION = _ua_session
 
 _model = None
 _nlp   = None
+_model_lock = threading.Lock()
+_nlp_lock   = threading.Lock()
 
-MAX_CANDIDATES    = 12
-SUMMARY_SENTENCES = 15
+MAX_CANDIDATES    = 6
+SUMMARY_SENTENCES = 8
 MIN_RELEVANCE     = 0.28
 _WIKI_HEADERS     = {"User-Agent": "AIHallucinationDetector/1.0 (educational; github.com/ai-hallucination)"}
 
@@ -69,18 +72,22 @@ def _get_summary(title: str, max_sentences: int = SUMMARY_SENTENCES) -> str:
 def get_model() -> SentenceTransformer:
     global _model
     if _model is None:
-        _model = SentenceTransformer("all-MiniLM-L6-v2")
+        with _model_lock:
+            if _model is None:  # double-check after acquiring lock
+                _model = SentenceTransformer("all-MiniLM-L6-v2")
     return _model
 
 
 def get_nlp():
     global _nlp
     if _nlp is None:
-        try:
-            import spacy
-            _nlp = spacy.load("en_core_web_sm")
-        except Exception:
-            _nlp = None
+        with _nlp_lock:
+            if _nlp is None:  # double-check after acquiring lock
+                try:
+                    import spacy
+                    _nlp = spacy.load("en_core_web_sm")
+                except Exception:
+                    _nlp = None
     return _nlp
 
 
@@ -162,7 +169,15 @@ def _build_query(question: str, prefer_person: bool = False) -> str:
 
 
 def _collect_search_queries(question: str, answer: str = "") -> list[str]:
-    """Build Wikipedia queries — role/person first, bare country name last."""
+    """
+    Universal Wikipedia query builder — handles ALL question types:
+      Science:   "Chemical formula of Benzene?"   → ["Benzene", ...]
+      People:    "Who is PM of India?"            → ["Prime Minister of India", "Narendra Modi"]
+      History:   "When was Eiffel Tower built?"   → ["Eiffel Tower", ...]
+      Geography: "Capital of France?"             → ["France", "Paris", ...]
+      Tech:      "What is binary search?"         → ["Binary search", ...]
+      Sports:    "Who holds 100m world record?"   → ["100 metres world record", ...]
+    """
     seen, queries = set(), []
     ask_person = _question_asks_for_person(question)
 
@@ -179,15 +194,78 @@ def _collect_search_queries(question: str, answer: str = "") -> list[str]:
         else:
             queries.append(q)
 
-    # 1. Role pages: President of Russia, Prime Minister of India, ...
+    # ─── Strategy 1: Role pages (PM of India → "Prime Minister of India") ─────
     for rq in _extract_role_queries(question):
         add(rq, front=True)
 
-    # 2. Person named in the LLM answer (e.g. Vladimir Putin)
+    # ─── Strategy 2: Person named in answer (e.g., "Narendra Modi") ───────────
     if answer:
         add(_build_query(answer[:300], prefer_person=True), front=True)
 
-    # 3. Full question phrase (before bare 'Russia')
+    # ─── Strategy 3: "of X" pattern — extract subject ────────────────────────
+    #   "chemical formula of Benzene" → "Benzene"
+    #   "capital of France" → "France"
+    #   "president of Russia" → already handled by role extraction
+    of_match = re.search(
+        r"(?:of|for|in|about|behind)\s+(?:the\s+)?(.{2,60})(?:\?|$)",
+        question, re.IGNORECASE,
+    )
+    if of_match:
+        subject = of_match.group(1).strip().rstrip("?.!,")
+        if subject.lower() not in {"it", "them", "this", "that", "these"}:
+            add(subject, front=True)
+
+    # ─── Strategy 4: "What/Who is X" pattern ──────────────────────────────────
+    #   "What is photosynthesis?" → "photosynthesis"
+    #   "What is binary search?" → "binary search"
+    what_match = re.search(
+        r"(?:what|who|where)\s+(?:is|are|was|were)\s+(?:the\s+|a\s+|an\s+)?(.{2,80})(?:\?|$)",
+        question, re.IGNORECASE,
+    )
+    if what_match:
+        subject = what_match.group(1).strip().rstrip("?.!,")
+        # Remove trailing "of X" since we already extracted X
+        subject_clean = re.sub(r"\s+(?:of|for|in)\s+.*$", "", subject)
+        if len(subject_clean) >= 2:
+            add(subject_clean, front=True)
+        add(subject, front=True)
+
+    # ─── Strategy 5: spaCy NER + noun chunks from question ───────────────────
+    nlp = get_nlp()
+    if nlp is not None:
+        doc = nlp(question)
+        # Named entities (Benzene, Einstein, France, Eiffel Tower...)
+        for ent in doc.ents:
+            if ent.label_ in {"PERSON", "ORG", "GPE", "LOC", "FAC", "EVENT",
+                               "WORK_OF_ART", "PRODUCT", "NORP", "SUBSTANCE",
+                               "QUANTITY", "DATE"}:
+                add(ent.text, front=True)
+        # Noun chunks — usually contain the subject
+        chunks = [c.text for c in doc.noun_chunks
+                  if c.text.lower() not in {"what", "who", "where", "when", "which",
+                                             "how", "it", "they", "the"}]
+        for chunk in chunks:
+            add(chunk)
+
+    # ─── Strategy 6: Key entities from the LLM answer ────────────────────────
+    if answer:
+        # spaCy NER on answer
+        if nlp is not None:
+            ans_doc = nlp(answer[:300])
+            for ent in ans_doc.ents:
+                if ent.label_ in {"PERSON", "ORG", "GPE", "LOC", "FAC", "EVENT",
+                                   "WORK_OF_ART", "PRODUCT"}:
+                    add(ent.text)
+        # Capitalized words (entity names)
+        answer_clean = re.sub(r"[?!.,;:]", "", answer[:300]).strip()
+        for word in answer_clean.split():
+            if len(word) >= 3 and word[0].isupper() and word.lower() not in {
+                "the", "this", "that", "its", "has", "was", "are", "for",
+                "however", "also", "but", "and", "not", "can", "may",
+            }:
+                add(word)
+
+    # ─── Strategy 7: Full question keywords ──────────────────────────────────
     q_clean = re.sub(r"[?!.,]", "", question.strip())
     _filler = {
         "what", "who", "where", "when", "how", "why", "which",
@@ -198,10 +276,11 @@ def _collect_search_queries(question: str, answer: str = "") -> list[str]:
     if len(words) >= 2:
         add(" ".join(words[:8]))
 
+    # Quoted terms in question
     for m in re.findall(r'"([^"]{3,80})"', question):
         add(m)
 
-    # 4. Generic entity last (often too broad: 'Russia' alone)
+    # ─── Strategy 8: Generic entity fallback ─────────────────────────────────
     add(_build_query(question, prefer_person=ask_person))
 
     return queries
@@ -214,9 +293,6 @@ def _title_variants(text: str) -> list[str]:
     out = [t]
     if t != t.title():
         out.append(t.title())
-    # Wikipedia often uses exact entity casing from search
-    if " " in t:
-        out.append(t.title())  # "virat kohli" -> "Virat Kohli"
     return list(dict.fromkeys(out))
 
 
@@ -321,7 +397,7 @@ def _wiki_api(params: dict) -> dict:
             "https://en.wikipedia.org/w/api.php",
             params={**params, "format": "json"},
             headers=_WIKI_HEADERS,
-            timeout=6.0,
+            timeout=3.0,
         )
         return r.json()
     except Exception:
@@ -451,11 +527,19 @@ def fetch_best_context(
     }
 
 
+# ── Question-level cache to avoid duplicate Wikipedia calls ───────────────────
+_evidence_cache: dict[str, dict] = {}
+_evidence_cache_lock = threading.Lock()
+
 def fetch_evidence_for_qa(question: str, answer: str = "") -> dict:
     """
     Try multiple query strategies in one pass; return the best article.
-    Used by M2 and M4.
+    Used by M2 and M4. Results cached by question to avoid duplicate API calls.
     """
+    cache_key = question.strip().lower()
+    if cache_key in _evidence_cache:
+        return _evidence_cache[cache_key]
+
     queries = _collect_search_queries(question, answer)
     if len(question) > 5:
         raw = question[:100].strip()
@@ -463,9 +547,13 @@ def fetch_evidence_for_qa(question: str, answer: str = "") -> dict:
             queries.append(raw)
 
     if not queries:
-        return {"context": "", "source": "", "found": False, "relevance": 0.0, "title": ""}
+        result = {"context": "", "source": "", "found": False, "relevance": 0.0, "title": ""}
+    else:
+        result = fetch_best_context(queries[0], question=question, answer=answer)
 
-    return fetch_best_context(queries[0], question=question, answer=answer)
+    with _evidence_cache_lock:
+        _evidence_cache[cache_key] = result
+    return result
 
 def _extract_relevant_sentences(question: str, context: str, top_k: int = 5) -> str:
     """Extract sentences from context most relevant to the question."""
