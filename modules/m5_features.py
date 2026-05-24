@@ -7,15 +7,13 @@ from __future__ import annotations
 import re
 import numpy as np
 
-FEATURE_DIM = 21
+FEATURE_DIM = 15
 FEATURE_NAMES = [
     "m1", "m2", "m3", "m4",
     "mean4", "std4", "min4", "max4",
     "m1_x_m4", "m2_x_m4", "m2_x_m3",
     "m4_low", "m2_low", "spread_m2_m4",
-    "token_overlap", "answer_len_norm",
-    "m2_found", "m1_std", "m3_variance",
-    "pseudo_multi", "short_answer",
+    "m2_found"
 ]
 
 
@@ -48,18 +46,8 @@ def build_feature_vector(
     scores = [m1, m2, m3, m4n]
     arr = np.array(scores, dtype=np.float32)
 
-    # Neutralized to prevent length shortcut learning from biased datasets
-    overlap = 0.5
-    ans_len = 0.5
-
     meta = meta or {}
     m2_found = float(bool(meta.get("m2_found", meta.get("found", False))))
-    # Disabled: these features differ between training (pseudo-samples) and
-    # live (Ollama), causing distribution shift. Zeroed out for consistency.
-    m1_std = 0.0
-    m3_var = 0.0
-    pseudo = 0.0
-    short = 0.0
 
     feats = [
         m1, m2, m3, m4n,
@@ -73,13 +61,7 @@ def build_feature_vector(
         float(m4n <= 0.5),
         float(m2 <= 0.45),
         abs(m2 - m4n),
-        overlap,
-        ans_len,
         m2_found,
-        m1_std,
-        m3_var,
-        pseudo,
-        short,
     ]
     return np.array(feats, dtype=np.float32)
 

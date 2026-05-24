@@ -15,6 +15,8 @@ Usage:
 """
 
 import os
+import warnings
+warnings.filterwarnings("ignore")
 
 # Force HuggingFace hub to run offline to prevent connection timeouts
 os.environ["HF_HUB_OFFLINE"] = "1"
@@ -31,7 +33,6 @@ sys.path.insert(0, BASE_DIR)
 
 from config import (
     TRAIN_PATH, TEST_PATH, MODEL_SAVE_PATH, SCORES_DIR,
-    M5_INPUT_SIZE, M5_HIDDEN_SIZE_1, M5_HIDDEN_SIZE_2,
     M5_BUNDLE_PATH, SCALER_SAVE_PATH,
 )
 from feature_extraction import build_question_index, extract_features
@@ -121,7 +122,7 @@ def run_shap(model, X: np.ndarray, save_dir: str, questions: list, answers: list
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
 
-        # M5 model accepts the 21 engineered features
+        # M5 model accepts the engineered features
         X_four = X[:, [0, 2, 1, 3]]
         from modules.m5_features import build_batch, FEATURE_NAMES
         X_eng = build_batch(X_four, questions=questions, answers=answers)

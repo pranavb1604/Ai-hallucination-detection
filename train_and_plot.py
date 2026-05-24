@@ -5,13 +5,15 @@ Trains the M5 Neural Network on the cached M2/M4 features.
 Generates BTP report plots (Loss, Accuracy, Confusion Matrix).
 """
 import os
+import warnings
+warnings.filterwarnings("ignore")
 
 import sys
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, roc_curve, auc
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
@@ -143,8 +145,39 @@ def main():
     plt.ylabel('True Label')
     plt.savefig(os.path.join(PLOTS_DIR, 'confusion_matrix.png'))
     plt.close()
+    print(f"Confusion matrix saved -> {os.path.join(PLOTS_DIR, 'confusion_matrix.png')}")
 
-    print("Plots successfully created! Ready for BTP report.")
+    # 3. ROC Curve
+    fpr, tpr, thresholds = roc_curve(y, probs)
+    roc_auc = auc(fpr, tpr)
+    
+    plt.figure(figsize=(7, 6))
+    plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {roc_auc:.3f})')
+    plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title(f'M5 ({M5_BACKEND.upper()}) Receiver Operating Characteristic')
+    plt.legend(loc="lower right")
+    plt.savefig(os.path.join(PLOTS_DIR, 'roc_curve.png'))
+    plt.close()
+    print(f"ROC curve plot saved -> {os.path.join(PLOTS_DIR, 'roc_curve.png')}")
+
+    # 4. Score Distribution Plot
+    plt.figure(figsize=(8, 6))
+    # Add small epsilon to handle perfect classification edge cases
+    sns.kdeplot(probs[y == 0] + 1e-6, color='green', fill=True, label='Correct (0)', warn_singular=False)
+    sns.kdeplot(probs[y == 1] + 1e-6, color='red', fill=True, label='Hallucinated (1)', warn_singular=False)
+    plt.title('M5 Predicted Hallucination Probability Distribution')
+    plt.xlabel('Predicted Probability of Hallucination')
+    plt.ylabel('Density')
+    plt.legend()
+    plt.savefig(os.path.join(PLOTS_DIR, 'score_distribution.png'))
+    plt.close()
+    print(f"Score distribution plot saved -> {os.path.join(PLOTS_DIR, 'score_distribution.png')}")
+
+    print("\nPlots successfully created! Ready for BTP report.")
 
 if __name__ == "__main__":
     main()

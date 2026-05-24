@@ -8,6 +8,8 @@ Speed optimisation: Wikipedia evidence is pre-fetched in parallel using a
 ThreadPoolExecutor so the GPU is never idle waiting for network I/O.
 """
 import os
+import warnings
+warnings.filterwarnings("ignore")
 import sys
 import numpy as np
 import pandas as pd

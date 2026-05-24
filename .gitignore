@@ -1,4 +1,25 @@
+# Virtual environments
+.venv/
 venv/
+hallucination_env/
+
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.egg-info/
+
+# Environment
 .env
+
+# Data & models (large files)
+data/
+models/
+*.pkl
+
+# Results (regenerable)
+results/
+
+# IDE
+.vscode/
+.idea/

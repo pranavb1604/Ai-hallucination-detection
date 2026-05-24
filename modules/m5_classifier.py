@@ -34,12 +34,6 @@ from modules.m5_features import (
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
-# ─── Backward-compatible 10-dim builder (evaluate ablation) ─────────────────
-
-def build_features(m1: float, m2: float, m3: float, m4: float) -> list:
-    v = build_feature_vector(m1, m2, m3, m4)
-    return v[:10].tolist()
-
 
 # ─── PyTorch network (legacy backend) ─────────────────────────────────────────
 
@@ -77,8 +71,7 @@ def _tune_threshold(y_true: np.ndarray, probs: np.ndarray) -> tuple[float, float
     return best_t, best_acc
 
 
-def _meta_dict(m1: float, m2: float, m3: float, m4: float, meta: dict | None) -> dict:
-    return meta or {}
+
 
 
 # ─── Train GB ─────────────────────────────────────────────────────────────────
@@ -475,45 +468,3 @@ def weighted_trust_score(
     return float(np.clip(np.dot(w, scores), 0.0, 1.0))
 
 
-def build_factual_features(X_raw: np.ndarray) -> np.ndarray:
-    """Legacy helper for backward compatibility with comparison scripts."""
-    N = X_raw.shape[0]
-    ncols = X_raw.shape[1]
-
-    if ncols == 8:
-        text_pad = np.zeros((N, 4), dtype=np.float32)
-        X_12 = np.column_stack((X_raw, text_pad))
-    elif ncols >= 12:
-        X_12 = X_raw[:, :12]
-    else:
-        raise ValueError(f"Expected 8 or 12+ raw features, got {ncols}")
-
-    m2           = X_12[:, 0]
-    m4           = X_12[:, 1]
-    m4_min       = X_12[:, 3]
-    m4_avg_nli   = X_12[:, 5]
-    m4_avg_sem   = X_12[:, 6]
-    m4_avg_lex   = X_12[:, 7]
-
-    m2_x_m4      = m2 * m4
-    spread_m2_m4 = np.abs(m2 - m4)
-    mean_factual = (m2 + m4) / 2.0
-    min_factual  = np.minimum(m2, m4)
-
-    m4_score_range       = m4 - m4_min
-    nli_semantic_gap     = np.abs(m4_avg_nli - m4_avg_sem)
-    lexical_boost        = m4_avg_lex * m2
-    factual_harmonic_mean = 2.0 * m2 * m4 / (m2 + m4 + 1e-8)
-
-    X_20 = np.column_stack((
-        X_12,
-        m2_x_m4,
-        spread_m2_m4,
-        mean_factual,
-        min_factual,
-        m4_score_range,
-        nli_semantic_gap,
-        lexical_boost,
-        factual_harmonic_mean,
-    ))
-    return X_20.astype(np.float32)

@@ -10,6 +10,7 @@ still score only the row's answer.
 import re
 from collections import defaultdict
 
+import numpy as np
 import pandas as pd
 
 from config import M1_NUM_SAMPLES
@@ -91,8 +92,6 @@ def build_response_samples(
 
     return responses[:max_samples]
 
-
-import numpy as np
 
 def extract_features(
     question: str,
