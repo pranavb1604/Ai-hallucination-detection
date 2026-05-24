@@ -19,7 +19,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
 
-from config import TRAIN_PATH, PROCESSED_DATA_DIR
+from config import TRAIN_PATH, TEST_PATH, PROCESSED_DATA_DIR
 from modules.m2_grounding import score as m2_score, fetch_evidence_for_qa
 from modules.m4_entailment import score as m4_score
 
@@ -115,12 +115,23 @@ def main():
     parser.add_argument("--rows", type=int, default=800,
                         help="Total balanced rows to precompute")
     parser.add_argument("--all", action="store_true", default=False,
-                        help="Process ALL rows in train.csv (imbalanced)")
+                        help="Process ALL rows in dataset (imbalanced)")
     parser.add_argument("--workers", type=int, default=PREFETCH_WORKERS,
                         help="Number of parallel Wikipedia fetch threads (default: 16)")
+    parser.add_argument("--test", action="store_true", default=False,
+                        help="Process test.csv instead of train.csv")
     args = parser.parse_args()
 
-    df = pd.read_csv(TRAIN_PATH)
+    if args.test:
+        input_path = TEST_PATH
+        cache_path = os.path.join(PROCESSED_DATA_DIR, "cached_test_features.csv")
+        print(f"Precomputing features for TEST set: {input_path}")
+    else:
+        input_path = TRAIN_PATH
+        cache_path = CACHE_PATH
+        print(f"Precomputing features for TRAIN set: {input_path}")
+
+    df = pd.read_csv(input_path)
 
     if args.all:
         balanced_df = df.sample(frac=1, random_state=42).reset_index(drop=True)
@@ -144,18 +155,18 @@ def main():
     print(f"Parallel Wikipedia workers: {args.workers}")
 
     # Delete old cache if format is wrong
-    if os.path.exists(CACHE_PATH):
+    if os.path.exists(cache_path):
         try:
-            old_df = pd.read_csv(CACHE_PATH)
+            old_df = pd.read_csv(cache_path)
             if "m4_min_score" not in old_df.columns:
                 print("Deleting old cache file (wrong format)...")
-                os.remove(CACHE_PATH)
+                os.remove(cache_path)
         except Exception:
-            os.remove(CACHE_PATH)
+            os.remove(cache_path)
 
     # Load existing cache to resume
-    if os.path.exists(CACHE_PATH):
-        cached_df = pd.read_csv(CACHE_PATH)
+    if os.path.exists(cache_path):
+        cached_df = pd.read_csv(cache_path)
         processed_questions = set(cached_df['question'].tolist())
         results = cached_df.to_dict('records')
         print(f"Resuming from {len(processed_questions)} cached rows...")
@@ -194,7 +205,7 @@ def main():
 
                     # Save every 10 new results
                     if len(results) % 10 == 0:
-                        pd.DataFrame(results).to_csv(CACHE_PATH, index=False)
+                        pd.DataFrame(results).to_csv(cache_path, index=False)
 
     except KeyboardInterrupt:
         print("\nProcess interrupted. Saving progress...")
@@ -203,8 +214,8 @@ def main():
 
     # Final save
     if results:
-        pd.DataFrame(results).to_csv(CACHE_PATH, index=False)
-        print(f"\nDone! Features saved to {CACHE_PATH}")
+        pd.DataFrame(results).to_csv(cache_path, index=False)
+        print(f"\nDone! Features saved to {cache_path}")
     else:
         print("No new features to save.")
 

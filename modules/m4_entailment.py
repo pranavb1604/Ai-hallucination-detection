@@ -625,7 +625,7 @@ def _verdict(score: float, n_claims: int, n_unsupported: int) -> str:
 
 # ─── Public API ───────────────────────────────────────────────────────────────
 
-def score(question: str, responses: list, evidence: str = "") -> dict:
+def score(question: str, responses: list, evidence: str | None = None) -> dict:
     """
     Main entry point for M4.
 
@@ -661,9 +661,10 @@ def score(question: str, responses: list, evidence: str = "") -> dict:
     answer = responses[0]
 
     # Use M2 evidence if provided, else fetch independently
-    ev = evidence if evidence else _fetch_evidence(
-        _build_query(question), question
-    )
+    if evidence is not None:
+        ev = evidence
+    else:
+        ev = _fetch_evidence(_build_query(question), question)
 
     if not ev:
         empty["m4_verdict"] = "No evidence retrieved — entailment skipped"

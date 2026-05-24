@@ -179,26 +179,79 @@ def main():
         )
     question_index = build_question_index(index_df)
 
-    df = full_df
-    if args.rows:
-        df = df.sample(n=min(args.rows, len(df)), random_state=42).reset_index(drop=True)
+    # Try to load cached test features if they exist
+    CACHED_TEST_PATH = os.path.join(os.path.dirname(TEST_PATH), "cached_test_features.csv")
+    use_cache = False
+    if os.path.exists(CACHED_TEST_PATH):
+        try:
+            cached_df = pd.read_csv(CACHED_TEST_PATH)
+            if len(cached_df) > 0:
+                print(f"Found precomputed features cache ({len(cached_df)} rows). Loading from cache...")
+                # Merge with full_df to restore the 'answer' column
+                test_unique = full_df.drop_duplicates(subset=["question", "label"], keep="first")
+                df = cached_df.merge(
+                    test_unique[["question", "label", "answer"]],
+                    on=["question", "label"],
+                    how="left"
+                )
+                df["answer"] = df["answer"].fillna("")
+                
+                if args.rows and len(df) > args.rows:
+                    df = df.sample(n=args.rows, random_state=42).reset_index(drop=True)
+                use_cache = True
+        except Exception as e:
+            print(f"  [WARN] Failed to load cache: {e}. Falling back to live extraction.")
+            
+    if not use_cache:
+        df = full_df
+        if args.rows:
+            df = df.sample(n=min(args.rows, len(df)), random_state=42).reset_index(drop=True)
 
     print(f"Evaluating on {len(df)} test rows ...")
-
-    # ── Extract features ──────────────────────────────────────────────────────
+            
     features, labels = [], []
-    for idx, row in tqdm(df.iterrows(), total=len(df), desc="Extracting features"):
-        try:
-            feats = extract_features(
-                str(row["question"]),
-                str(row["answer"]),
-                label=int(row["label"]),
-                question_index=question_index,
-            )
+    if use_cache:
+        from modules.m1_consistency import score as m1_score
+        from modules.m3_uncertainty import score as m3_score
+        from feature_extraction import build_response_samples
+        
+        for idx, row in tqdm(df.iterrows(), total=len(df), desc="Computing M1/M3 on top of cached M2/M4"):
+            q = str(row["question"]).strip()
+            a = str(row["answer"]).strip()
+            lbl = int(row["label"])
+            
+            responses = build_response_samples(q, a, lbl, question_index)
+            
+            m1 = m1_score(q, responses)["m1_score"]
+            m3 = m3_score(q, responses)["m3_score"]
+            
+            feats = [
+                m1,
+                m3,
+                float(row["m2_score"]),
+                float(row["m4_score"]),
+                float(row["m4_mean_score"]),
+                float(row["m4_min_score"]),
+                float(row["m4_n_unsupported"]),
+                float(row["m4_avg_nli"]),
+                float(row["m4_avg_semantic"]),
+                float(row["m4_avg_lexical"])
+            ]
             features.append(feats)
-            labels.append(int(row["label"]))
-        except Exception as e:
-            print(f"  [WARN] Row {idx} skipped: {e}")
+            labels.append(lbl)
+    else:
+        for idx, row in tqdm(df.iterrows(), total=len(df), desc="Extracting features"):
+            try:
+                feats = extract_features(
+                    str(row["question"]),
+                    str(row["answer"]),
+                    label=int(row["label"]),
+                    question_index=question_index,
+                )
+                features.append(feats)
+                labels.append(int(row["label"]))
+            except Exception as e:
+                print(f"  [WARN] Row {idx} skipped: {e}")
 
     X = np.array(features, dtype=np.float32)
     y = np.array(labels,   dtype=np.float32)
@@ -234,9 +287,13 @@ def main():
         trust_probs = np.array([weighted_trust_score(*row) for row in X_fallback])
         hallucination_probs = 1.0 - trust_probs
 
-    # Threshold: trust < 0.5 → predicted hallucinated (label=1)
-    threshold = 0.5
-    y_pred = (trust_probs < threshold).astype(int)
+    if bundle is not None:
+        model_threshold = bundle.get("threshold", 0.5)
+        print(f"Using M5 calibrated decision threshold: {model_threshold:.4f}")
+        y_pred = (hallucination_probs >= model_threshold).astype(int)
+    else:
+        threshold = 0.5
+        y_pred = (trust_probs < threshold).astype(int)
 
     # ── Metrics ───────────────────────────────────────────────────────────────
     metrics = compute_metrics(y, y_pred, hallucination_probs)
